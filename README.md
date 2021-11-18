@@ -1,5 +1,5 @@
 # PygameAmongUsProject
-Python only
-Socket
-Threading
-Pygame
+#Python only
+#Socket
+#Threading
+#Pygame
