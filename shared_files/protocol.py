@@ -6,12 +6,19 @@ class OperationsEnum(enum.IntEnum):
     create_room = 2
     find_rooms = 3
     join_room = 4
+    move = 5
 
 
 # FROM CLIENT
 
-
 class MouseClickRequest:
+    operation = OperationsEnum.mouse_click
+
+    def __init__(self, pos_x, pos_y):
+        self.pos_x, self.pos_y = pos_x, pos_y
+
+
+class MouseClickRoomRequest:
     operation = OperationsEnum.mouse_click
 
     def __init__(self, pos_x, pos_y):
@@ -32,20 +39,21 @@ class FindRoomsRequest:
 class JoinRoomRequest:
     operation = OperationsEnum.join_room
 
-    def __init__(self, room_name):
-        self.room_name = room_name
+    def __init__(self, token):
+        self.token = token
 
 # FROM SERVER
 
 
-class ConnectRoomResponse:
+class RoomTokenResponse:
     operation = OperationsEnum.create_room
 
-    def __init__(self, port):
-        self.port = port
+    def __init__(self, token):
+        self.token = token
 
 
 class FindRoomsResponse:
+    """every room is represented as (room.name, len(room.players_list), room.max_players, room.token)"""
     operation = OperationsEnum.find_rooms
 
     def __init__(self, rooms_list):

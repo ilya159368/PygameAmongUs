@@ -1,5 +1,5 @@
 class Config:
-    server_ip = 'localhost'
+    server_ip = ''
     server_port = 9000
     server_address = server_ip + ':' + str(server_port)
     server_listen = 5

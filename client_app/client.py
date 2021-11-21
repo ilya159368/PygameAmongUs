@@ -2,29 +2,32 @@ import socket
 import datetime
 import threading
 import pickle
+import sys
 from config import Config
-from protocol import *
+# from shared_files.protocol import *
+from shared_files.thread_ import CustomThread
 
 
 class Client(socket.socket):
-
-    queue_to = None
-    queue_from = None
-
-    def __init__(self):
+    def __init__(self, app):
         super(Client, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((Config.server_ip, Config.server_port))
-
-        self.last_time_connected = datetime.datetime.now()
-        self.recv_thread = threading.Thread(target=self.recv_data)
-        self.recv_thread.start()
-        # self.recv_thread.setDaemon(True)
-        # self.send_thread.setDaemon(True)
-
-    def reconnect(self, port):
-        self.close()
-        super(Client, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((Config.server_ip, port))
+        self.settimeout(1)
+        self.connect_server()
+        if self.connected:
+            self.queue_from = app.queue_from
+            self.queue_to = app.queue_to
+            self.last_time_connected = datetime.datetime.now()
+            self.recv_thread = CustomThread(target=self.recv_data)
+            self.send_thread = CustomThread(target=self.send_data)
+            app.send_thread = self.send_thread
+            self.send_thread.start()
+            self.recv_thread.start()
+            app.add_before_exit(self.close)
+            app.add_before_exit(self.send_thread.kill)
+            app.add_before_exit(self.recv_thread.kill)
+        else:
+            app.offline = True
+        app.connecting = False
 
     def send_data(self):
         while 1:
@@ -42,13 +45,27 @@ class Client(socket.socket):
         while 1:
             try:
                 data = self.recv(1024)
+            except socket.timeout as e:
+                err = e.args[0]
+                if err == 'timed out':
+                    continue
+                else:
+                    sys.exit(1)
             except socket.error:
                 self.close()
                 return -1
-            if not data:
-                break
-            self.queue_from.append(data)
-            req = pickle.loads(data)
-            if req.operation in (OperationsEnum.create_room, OperationsEnum.join_room):
-                self.reconnect(req.port)
-                print('reconnected')
+            else:
+                if not data:
+                    print('server error')
+                    sys.exit(0)
+                else:
+                    self.queue_from.append(data)
+            # req = pickle.loads(data)
+
+    def connect_server(self):
+        try:
+            self.connect((Config.server_ip, Config.server_port))
+            self.connected = True
+        except socket.error:
+            self.connected = False
+
