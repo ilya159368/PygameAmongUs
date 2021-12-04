@@ -1,7 +1,6 @@
 import socket
 import datetime
 import threading
-import pickle
 import sys
 from config import Config
 # from shared_files.protocol import *
