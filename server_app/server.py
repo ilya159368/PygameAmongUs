@@ -8,7 +8,6 @@ from shared_files.protocol import *
 from shared_files.thread_ import CustomThread
 from client import Client
 
-
 class Server(socket.socket):
     def __init__(self):
         super(Server, self).__init__(socket.AF_INET, socket.SOCK_STREAM)

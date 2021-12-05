@@ -42,6 +42,14 @@ class JoinRoomRequest:
     def __init__(self, token):
         self.token = token
 
+
+class MoveRequest:
+    operation = OperationsEnum.move
+
+    def __init__(self, origin, alive, imposter, color):
+        pass
+
+
 # FROM SERVER
 
 
