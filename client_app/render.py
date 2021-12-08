@@ -61,14 +61,14 @@ class Image:
         self.rect = self.surface.get_rect()
 
 
-class CollisionMap():
+class CollisionMap:
     def __init__(self, surface):
         self.mask = pygame.mask.from_surface(surface)
         self.image = pygame.Surface(surface.get_size())
         self.rect = self.image.get_rect()
 
 
-def init(size: tuple[int, int] | list[int, int]) -> bool:
+def init(size: tuple[int, int] or list[int, int]) -> bool:
     global __surface
     global __clock
 
@@ -80,7 +80,7 @@ def init(size: tuple[int, int] | list[int, int]) -> bool:
         return False
 
 
-def start_frame(color: pygame.Color | tuple[int, int, int] | str = (0, 0, 0)):
+def start_frame(color: pygame.Color or tuple[int, int, int] | str = (0, 0, 0)):
     __surface.fill(color)
 
 
@@ -94,19 +94,19 @@ def set_fps(fps: int):
     __fps = fps
 
 
-def rect(start: Vector2, end: Vector2, color: pygame.Color | tuple[int, int, int] | tuple[int, int, int, int] | str, width: int = 1, rounding: int = 0, group=None):
+def rect(start: Vector2, end: Vector2, color: pygame.Color or tuple[int, int, int] or tuple[int, int, int, int] or str, width: int = 1, rounding: int = 0, group=None):
     pygame.draw.rect(__surface, color, (start.x, start.y, end.x - start.x, end.y - start.y), width=width, border_radius=rounding)
 
 
-def rect_filled(start: Vector2, end: Vector2, color: pygame.Color | tuple[int, int, int] | tuple[int, int, int, int] | str, rounding: int = 0):
+def rect_filled(start: Vector2, end: Vector2, color: pygame.Color or tuple[int, int, int] or tuple[int, int, int, int] or str, rounding: int = 0):
     pygame.draw.rect(__surface, color, (start.x, start.y, end.x - start.x, end.y - start.y), border_radius=rounding)
 
 
-def circle(origin: Vector2, color: pygame.Color | tuple[int, int, int] | tuple[int, int, int, int] | str, radius: float | int, width:int = 1):
+def circle(origin: Vector2, color: pygame.Color or tuple[int, int, int] or tuple[int, int, int, int] or str, radius: float or int, width:int = 1):
     pygame.draw.circle(__surface, color, (origin.x, origin.y), radius, width=width)
 
 
-def circle_filled(origin: Vector2, color: pygame.Color | tuple[int, int, int] | tuple[int, int, int, int] | str, radius: float | int):
+def circle_filled(origin: Vector2, color: pygame.Color or tuple[int, int, int] or tuple[int, int, int, int] or str, radius: float or int):
     pygame.draw.circle(__surface, color, (origin.x, origin.y), radius)
 
 

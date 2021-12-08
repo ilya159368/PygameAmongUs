@@ -1,5 +1,4 @@
 import time
-from os import environ
 import pickle
 from shared_files.protocol import *
 from widgets import *
@@ -7,12 +6,10 @@ from collections import deque
 import keyboard
 import player
 import render
-import threading
+import pygame as pg
 
 Vector2 = render.Vector2
 
-environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-import pygame as pg
 
 class App:
     # service funcs ------------------
@@ -42,12 +39,17 @@ class App:
         self.send_thread = None
         # end service attrs ----
 
+        self.size = self.width, self.height = 1600, 900
+        self.player_size = (100, 120)
+        self.player_speed = 60
+        self.running = True
+        self.signed_in = False
         self.in_game = False
         self.offline = False
         self.connecting = True
         self.token = None
-        self.screen = pg.display.set_mode([1600, 900])
-        render.init((1600, 900))
+        self.screen = pg.display.set_mode(self.size)
+        render.init(self.size)
         self.clock = pg.time.Clock()
         self.player_list = [player.Player()]
         self.camera_pos = Vector2(0, 0)
@@ -55,40 +57,115 @@ class App:
 
         # CONSTANTS
         WHITE = (255, 255, 255)
+        BLACK = (0, 0, 0)
+        ALPHA = pg.SRCALPHA
         FONT_DEFAULT = pg.font.SysFont('monospace', 70)
+        # images
         self.bg_img = pg.image.load('images/bg.png')
         self.back_img = pg.image.load('images/back.png')
         self.account_img = pg.image.load('images/account.png')
+        self.settings_img = pg.image.load('images/settings.png')
+        self.about_img = pg.image.load('images/about.png')
+        self.stats_img = pg.image.load('images/statistics.png')
         self.map_image = pg.image.load("images/among_map.png")
+        # self.amogus_right = pg.image.load("images/amogus.png")
+        # self.amogus_right = pygame.transform.smoothscale(self.amogus_right, (100, 120))
+        # self.amogus_left = pygame.transform.flip(self.amogus_right, True, False)
         self.amogus_left = pg.image.load("images/amogus.png")
         self.amogus_right = pg.image.load("images/amogus.png")
-        self.amogus_left = pygame.transform.smoothscale(self.amogus_left, (100, 120))
-        self.amogus_right = pygame.transform.smoothscale(self.amogus_right, (100, 120))
+        self.amogus_left = pygame.transform.smoothscale(self.amogus_left, self.player_size)
+        self.amogus_right = pygame.transform.smoothscale(self.amogus_right, self.player_size)
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
-        self.collision_map = render.CollisionMap(pg.image.load("images/among_walls.png"))
 
+        self.collision_map = render.CollisionMap(pg.image.load("images/among_walls.png"))
+        # groups
         self.menu_group = pg.sprite.Group()
         self.account_group = pg.sprite.Group()
-        self.game_group = pg.sprite.Group()
-        self.menu_btn_play = Button((200, 400), (300, 100), WHITE,
-                                    TextLabel('play'),
-                                    width=5, border_radius=True, group=self.menu_group, func=self.show_game)
-        self.menu_btn_account = Button((25, 25), (100, 100), pg.SRCALPHA,
+        self.signin_group = pg.sprite.Group()
+        self.register_group = pg.sprite.Group()
+        self.ui_group = pg.sprite.Group()
+        self.players_group = pg.sprite.Group()
+        # main menu layout
+        w, h = self.size
+        small_img_button_pos = (w // 32, h // 18)
+        small_img_button_size = (w // 12, w // 12)
+        signin_input_size = (w // 8 * 3, h // 6)
+        register_input_size = (w // 8 * 3.35, h // 8)
+        # menu widgets
+        self.menu_btn_play = Button((w // 3, h // 2), (w // 3, h // 5), ALPHA,
+                                    Text('play', full_font=FONT_DEFAULT), border_color=WHITE,
+                                    width=5, border_radius=h // 5, group=self.menu_group,
+                                    func=self.show_game)
+        self.menu_btn_account = Button(small_img_button_pos, small_img_button_size, ALPHA,
                                        self.account_img, group=self.menu_group,
                                        func=self.show_account)
-        self.menu_linedit = LineEdit((600, 300), (300, 200), WHITE, width=5,
-                                     placeholder='name...', border_radius=True,
-                                     group=self.menu_group)
-        self.account_btn_back = Button((25, 25), (100, 100), pg.SRCALPHA,
-                                       self.back_img, group=self.account_group, func=self.show_menu)
-        self.account_signin_login = LineEdit((100, 300), (500, 150), WHITE, width=5,
-                                             placeholder='login', border_radius=True,
-                                             group=self.account_group)
-        self.account_signin_password = LineEdit((700, 300), (500, 150), WHITE, width=5,
-                                                placeholder='password', border_radius=True,
-                                                group=self.account_group)
-        self.account_btn_back = Button((400, 550), (450, 100), WHITE,
-                                       TextLabel('Sign in'), group=self.account_group, func=None, width=5, border_radius=True)
+        self.menu_btn_exit = Button((w // 32 * 27, h // 18), (True, w // 12), WHITE,
+                                    Text('exit', full_font=FONT_DEFAULT), group=self.menu_group,
+                                    func=self.exit, border_radius=True, width=5, border_color=WHITE)
+        self.menu_btn_settings = Button((w // 3, h // 4 * 3), (w // 12, w // 12), ALPHA,
+                                        self.settings_img, group=self.menu_group,
+                                        func=self.show_settings)
+        self.menu_btn_about = Button((w // 2 - w // 24, h // 4 * 3), (w // 12, w // 12), ALPHA,
+                                     self.about_img, group=self.menu_group,
+                                     func=self.show_about)
+        self.menu_btn_stats = Button((w // 3 * 2 - w // 12, h // 4 * 3), (w // 12, w // 12), ALPHA,
+                                     self.stats_img, group=self.menu_group,
+                                     func=self.show_statistics)
+
+        self.account_btn_back = Button(small_img_button_pos, small_img_button_size, pg.SRCALPHA,
+                                       self.back_img, group=(self.signin_group, self.account_group),
+                                       func=self.show_menu)
+        # signin widgets
+        self.signin_login = LineEdit((w // 10, h // 2.7), signin_input_size, ALPHA, WHITE, width=5,
+                                     placeholder='login', border_radius=True,
+                                     group=self.signin_group, full_font=FONT_DEFAULT)
+        self.signin_password = LineEdit((w - w // 10 - signin_input_size[0], h // 2.7),
+                                        signin_input_size, ALPHA, WHITE, width=5,
+                                        placeholder='password', border_radius=True,
+                                        group=self.signin_group, full_font=FONT_DEFAULT)
+        self.btn_signin = Button((w // 2 - w // 6, h // 6 * 4), (w // 3, h // 8), ALPHA,
+                                 Text('Sign in', full_font=FONT_DEFAULT),
+                                 group=self.signin_group, border_color=WHITE,
+                                 func=self.signin, border_radius=h // 8, width=5)
+        self.btn_show_register = Button((w // 2 - w // 6, h // 6 * 5), (w // 3, h // 8), ALPHA,
+                                        Text('Register', full_font=FONT_DEFAULT, italic=True),
+                                        group=self.signin_group, func=self.show_register)
+        # register widgets
+        self.register_btn_back = Button(small_img_button_pos, small_img_button_size, ALPHA,
+                                        self.back_img, group=self.register_group,
+                                        func=self.show_signin)
+        self.register_username = LineEdit((w // 16, h // 2.7), register_input_size, ALPHA, WHITE,
+                                          width=5,
+                                          placeholder='username', border_radius=True,
+                                          group=self.register_group, full_font=FONT_DEFAULT)
+        self.register_email = LineEdit((w - w // 16 - register_input_size[0], h // 2.7),
+                                       register_input_size, ALPHA, WHITE, width=5,
+                                       placeholder='email', border_radius=True,
+                                       group=self.register_group, full_font=FONT_DEFAULT)
+        self.register_password1 = LineEdit((w // 16, h // 1.7), register_input_size, ALPHA, WHITE,
+                                           width=5,
+                                           placeholder='password', border_radius=True,
+                                           group=self.register_group, full_font=FONT_DEFAULT)
+        self.register_password2 = LineEdit((w - w // 16 - register_input_size[0], h // 1.7),
+                                           register_input_size, ALPHA, WHITE, width=5,
+                                           placeholder='repeat password', border_radius=True,
+                                           group=self.register_group, full_font=FONT_DEFAULT)
+        self.btn_register = Button((w // 2 - w // 6, h * 0.8), (w // 3, h // 8), ALPHA,
+                                   Text('Register', full_font=FONT_DEFAULT),
+                                   group=self.register_group, border_color=WHITE,
+                                   func=self.register, border_radius=h // 8, width=5)
+        # account
+        self.account_username = Label((w // 2 - w // 4, h // 2.7), (w // 2, h // 7),
+                                      Text('Username: "..."', full_font=FONT_DEFAULT), ALPHA, WHITE,
+                                      width=5, border_radius=True, group=self.account_group)
+        self.account_btn_signout = Button((w // 8 * 0.75, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
+                                   Text('sign out', full_font=FONT_DEFAULT),
+                                   group=self.account_group, border_color=WHITE,
+                                   func=self.signout, border_radius=h // 8, width=5)
+        self.account_btn_change = Button((w // 8 * 4.25, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
+                                   Text('change name', full_font=FONT_DEFAULT),
+                                   group=self.account_group, border_color=WHITE,
+                                   func=self.change_name, border_radius=h // 8, width=5)
         # PREDEFINE
         self.visible_group = self.menu_group
 
@@ -102,7 +179,7 @@ class App:
         else:
             self.screen.fill((0, 0, 0))
             self.screen.blit(self.map_image, self.world_to_screen(Vector2(0, 0)).to_pg())
-            if time.time() - self.last_update_time > 1/16:
+            if time.time() - self.last_update_time > 1 / 16:
                 self.cl_move()
                 self.last_update_time = time.time()
             self.draw_players()
@@ -119,7 +196,7 @@ class App:
             self.screen.blit(self.amogus_right if player.side else self.amogus_left, w2s.to_pg())
 
     def run(self):
-        while 1:
+        while self.running:
             self.update()
             # events / send
             e: pg.event.Event
@@ -127,7 +204,7 @@ class App:
                 # system
                 if e.type == pg.QUIT:
                     [func() for func in self.before_exit]
-                    exit()
+                    self.running = False
                 elif e.type in (pg.WINDOWRESIZED, pg.WINDOWSHOWN):
                     self.resize_event()
                 # gameplay
@@ -159,15 +236,11 @@ class App:
                 self.clock.tick(60)
             except KeyboardInterrupt:
                 pass
-
-    def show_menu(self):
-        self.visible_group = self.menu_group
-
-    def show_account(self):
-        self.visible_group = self.account_group
+        pg.quit()
 
     def world_to_screen(self, world: Vector2):
-        return Vector2(1600 / 2 + (world.x - self.camera_pos.x), 900 / 2 + (world.y - self.camera_pos.y))
+        return Vector2(self.width / 2 + (world.x - self.camera_pos.x),
+                       self.height / 2 + (world.y - self.camera_pos.y))
 
     def cl_move(self):
         local_player_id = 0
@@ -182,13 +255,13 @@ class App:
         velocity = Vector2(0, 0)
 
         if in_forward:
-            velocity.y = -60
+            velocity.y = -self.player_speed
         if in_backward:
-            velocity.y = 60
+            velocity.y = self.player_speed
         if in_left:
-            velocity.x = -60
+            velocity.x = -self.player_speed
         if in_right:
-            velocity.x = 60
+            velocity.x = self.player_speed
         velocity.clamp(60)
         origin = local_player.origin + velocity
 
@@ -202,9 +275,51 @@ class App:
         self.player_list[id].net_update(origin, velocity)
 
     def show_game(self):
-        self.in_game = True
-        self.visible_group = self.game_group
+        if self.signed_in:
+            self.in_game = True
+            self.visible_group = self.players_group
+        else:
+            self.show_signin()
 
+    def show_menu(self):
+        self.visible_group = self.menu_group
+
+    def show_signin(self):  # TODO: clear fields if reopen; fill fields if registered;
+        self.visible_group = self.signin_group
+
+    def show_account(self):
+        if self.signed_in:
+            self.visible_group = self.account_group
+        else:
+            self.show_signin()
+
+    def show_register(self):
+        self.visible_group = self.register_group
+
+    def exit(self):
+        self.running = False
+
+    def signin(self):
+        ...
+
+    def register(self):
+        self.visible_group = self.signin_group
+
+    def show_settings(self):
+        ...
+
+    def show_statistics(self):
+        ...
+
+    def show_about(self):
+        ...
+
+    def signout(self):
+        self.signed_in = False
+        self.visible_group = self.menu_group
+
+    def change_name(self):
+        ...
 
 
 def main():
