@@ -66,3 +66,9 @@ class FindRoomsResponse:
 
     def __init__(self, rooms_list):
         self.rooms_list = rooms_list
+
+
+class Token:
+    def __init__(self, operation, **kwargs):
+        self.operation = operation
+        self.kwargs = kwargs

@@ -7,6 +7,8 @@ import pickle
 from shared_files.protocol import *
 from shared_files.thread_ import CustomThread
 from client import Client
+from db_funcs import *
+
 
 class Server(socket.socket):
     def __init__(self):
@@ -18,15 +20,18 @@ class Server(socket.socket):
         self.rooms_list = []
         self.room_token = 111
 
+        self.db = sqlite3.connect('database.sqlite', check_same_thread=False)
+        self.cur = self.db.cursor()
+
     def listen_connections(self):
         while 1:
             conn, addr = self.accept()
             self.clients_list.append(Client(conn))
             print(f'Connected {conn}')
-            new_thread = CustomThread(target=self.recv_data, args=(conn, addr))
+            new_thread = CustomThread(target=self.recv_data, args=(conn,))
             new_thread.start()
 
-    def recv_data(self, conn: socket.socket, addr):
+    def recv_data(self, conn: socket.socket):
         client = sorted(self.clients_list, key=lambda x: x.conn is conn, reverse=True)[0]
         while 1:
             try:
@@ -76,6 +81,21 @@ class Server(socket.socket):
                     room = sorted(self.rooms_list, key=lambda x: x.token == req.token and x.available, reverse=True)[0]
                     client.room = room
                     room.players_list.append(client)
+                # ----------- тут начинается бд ---------------------------------------
+                elif req.operation == 'sign_in':
+                    result = sign_in(self.db, req.kwargs['name'], req.kwargs['password'], self.cur)
+                    conn.send(pickle.dumps(Token('sign_in', status=result)))
+
+                elif req.operation == 'register':
+                    result = register(self.db, req.kwargs['name'], req.kwargs['password'], req.kwargs['email'],
+                                      self.cur)
+
+                    conn.send(pickle.dumps(Token('register', status=result)))
+
+                elif req.operation == 'change_name':
+                    result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'])
+                    conn.send(pickle.dumps(Token('change_name', status=result)))
+
             print(req)
 
 
