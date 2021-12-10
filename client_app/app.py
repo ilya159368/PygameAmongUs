@@ -7,6 +7,8 @@ import keyboard
 import player
 import render
 import pygame as pg
+import threading
+from client import Client
 
 Vector2 = render.Vector2
 
@@ -22,7 +24,8 @@ class App:
         if self.send_thread.is_paused():
             self.send_thread.resume()
         req.__setattr__('in_game', self.in_game)
-        self.queue_to.append(pickle.dumps(req))
+        r = pickle.dumps(req)
+        self.queue_to.append(r)
 
     def from_queue(self):
         if self.offline:
@@ -116,10 +119,10 @@ class App:
                                        self.back_img, group=(self.signin_group, self.account_group),
                                        func=self.show_menu)
         # signin widgets
-        self.signin_login = LineEdit((w // 10, h // 2.7), signin_input_size, ALPHA, WHITE, width=5,
+        self.signin_login = LineEdit((w // 10, h // 2.9), signin_input_size, ALPHA, WHITE, width=5,
                                      placeholder='login', border_radius=True,
                                      group=self.signin_group, full_font=FONT_DEFAULT)
-        self.signin_password = LineEdit((w - w // 10 - signin_input_size[0], h // 2.7),
+        self.signin_password = LineEdit((w - w // 10 - signin_input_size[0], h // 2.9),
                                         signin_input_size, ALPHA, WHITE, width=5,
                                         placeholder='password', border_radius=True,
                                         group=self.signin_group, full_font=FONT_DEFAULT)
@@ -130,23 +133,27 @@ class App:
         self.btn_show_register = Button((w // 2 - w // 6, h // 6 * 5), (w // 3, h // 8), ALPHA,
                                         Text('Register', full_font=FONT_DEFAULT, italic=True),
                                         group=self.signin_group, func=self.show_register)
+        self.signin_status_label = Label((0, h // 1.925), (w, h // 8),
+                                         Text('', full_font=FONT_DEFAULT, border_color=(255, 0, 0)),
+                                         ALPHA, group=self.signin_group
+                                         )
         # register widgets
         self.register_btn_back = Button(small_img_button_pos, small_img_button_size, ALPHA,
                                         self.back_img, group=self.register_group,
                                         func=self.show_signin)
-        self.register_username = LineEdit((w // 16, h // 2.7), register_input_size, ALPHA, WHITE,
+        self.register_username = LineEdit((w // 16, h // 3), register_input_size, ALPHA, WHITE,
                                           width=5,
                                           placeholder='username', border_radius=True,
                                           group=self.register_group, full_font=FONT_DEFAULT)
-        self.register_email = LineEdit((w - w // 16 - register_input_size[0], h // 2.7),
+        self.register_email = LineEdit((w - w // 16 - register_input_size[0], h // 3),
                                        register_input_size, ALPHA, WHITE, width=5,
                                        placeholder='email', border_radius=True,
                                        group=self.register_group, full_font=FONT_DEFAULT)
-        self.register_password1 = LineEdit((w // 16, h // 1.7), register_input_size, ALPHA, WHITE,
+        self.register_password1 = LineEdit((w // 16, h // 2), register_input_size, ALPHA, WHITE,
                                            width=5,
                                            placeholder='password', border_radius=True,
                                            group=self.register_group, full_font=FONT_DEFAULT)
-        self.register_password2 = LineEdit((w - w // 16 - register_input_size[0], h // 1.7),
+        self.register_password2 = LineEdit((w - w // 16 - register_input_size[0], h // 2),
                                            register_input_size, ALPHA, WHITE, width=5,
                                            placeholder='repeat password', border_radius=True,
                                            group=self.register_group, full_font=FONT_DEFAULT)
@@ -154,18 +161,22 @@ class App:
                                    Text('Register', full_font=FONT_DEFAULT),
                                    group=self.register_group, border_color=WHITE,
                                    func=self.register, border_radius=h // 8, width=5)
+        self.register_status_label = Label((0, h // 1.5), (w, h // 8),
+                                           Text('', full_font=FONT_DEFAULT, border_color=(255, 0, 0)),
+                                           ALPHA, group=self.register_group,
+                                           )
         # account
         self.account_username = Label((w // 2 - w // 4, h // 2.7), (w // 2, h // 7),
                                       Text('Username: "..."', full_font=FONT_DEFAULT), ALPHA, WHITE,
                                       width=5, border_radius=True, group=self.account_group)
         self.account_btn_signout = Button((w // 8 * 0.75, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
-                                   Text('sign out', full_font=FONT_DEFAULT),
-                                   group=self.account_group, border_color=WHITE,
-                                   func=self.signout, border_radius=h // 8, width=5)
+                                          Text('sign out', full_font=FONT_DEFAULT),
+                                          group=self.account_group, border_color=WHITE,
+                                          func=self.signout, border_radius=h // 8, width=5)
         self.account_btn_change = Button((w // 8 * 4.25, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
-                                   Text('change name', full_font=FONT_DEFAULT),
-                                   group=self.account_group, border_color=WHITE,
-                                   func=self.change_name, border_radius=h // 8, width=5)
+                                         Text('change name', full_font=FONT_DEFAULT),
+                                         group=self.account_group, border_color=WHITE,
+                                         func=self.change_name, border_radius=h // 8, width=5)
         # PREDEFINE
         self.visible_group = self.menu_group
 
@@ -208,8 +219,6 @@ class App:
                 elif e.type in (pg.WINDOWRESIZED, pg.WINDOWSHOWN):
                     self.resize_event()
                 # gameplay
-                elif e.type == pg.MOUSEBUTTONDOWN:
-                    self.to_queue(MouseClickRequest(*pg.mouse.get_pos()))
                 elif e.type == pg.KEYDOWN and e.key == pg.K_c and not self.in_game:
                     self.to_queue(CreateRoomRequest('name', 10))
                 elif e.type == pg.KEYDOWN and e.key == pg.K_f:
@@ -230,6 +239,19 @@ class App:
                     print(rooms)
                 elif resp.operation in (OperationsEnum.create_room, OperationsEnum.join_room):
                     self.in_game = True
+                # тут писал криворукий
+                elif resp.operation == 'register':
+                    if resp.kwargs['status'] == 'ok':
+                        self.show_signin()
+                    else:
+                        self.register_status_label.text.set_text(resp.kwargs['status'])
+
+                elif resp.operation == 'sign_in':
+                    if resp.kwargs['status'] == 'ok':
+                        self.signed_in = True
+                        self.show_menu()
+                    else:
+                        self.signin_status_label.text.set_text(resp.kwargs['status'])
             self.draw()
             try:
                 pg.display.flip()
@@ -300,10 +322,19 @@ class App:
         self.running = False
 
     def signin(self):
-        ...
+        if self.signin_login.text and self.signin_password.text:
+            self.to_queue(Token(
+                'sign_in', name=self.signin_login.text, password=self.signin_password.text
+            ))
 
     def register(self):
-        self.visible_group = self.signin_group
+        # проверка на пустые строки и разные пароли
+        if self.register_password1.text == self.register_password1.text and self.register_password1 and \
+                self.register_email.text and self.register_username.text:
+            self.to_queue(Token(
+                'register', name=self.register_username.text, password=self.register_password1.text,
+                email=self.register_email.text
+            ))
 
     def show_settings(self):
         ...
@@ -325,8 +356,8 @@ class App:
 def main():
     pg.init()
     app = App()
-    # connect = threading.Thread(target=Client, args=(app,))
-    # connect.start()
+    connect = threading.Thread(target=Client, args=(app,))
+    connect.start()
     app.run()
 
 
