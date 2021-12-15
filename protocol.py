@@ -68,7 +68,22 @@ class FindRoomsResponse:
         self.rooms_list = rooms_list
 
 
+class JoinRoomResponse:
+    operation = OperationsEnum.create_room
+
+    def __init__(self, id):
+        self.id = id
+
+
 class Token:
     def __init__(self, operation, **kwargs):
+        self.in_game = None
         self.operation = operation
         self.kwargs = kwargs
+
+
+class DeepToken:
+    def __init__(self, operation, **kwargs):
+        self.operation = operation
+        for k, v in kwargs.items():
+            self.__setattr__(k, v)

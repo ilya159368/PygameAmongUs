@@ -1,7 +1,7 @@
 import pickle
 import threading
 from collections import deque
-from shared_files.thread_ import CustomThread
+from thread_ import CustomThread
 
 
 class Client:
@@ -15,6 +15,21 @@ class Client:
 
     def send_data(self):
         while 1:
+            if self.queue:
+                self.conn.send(pickle.dumps(self.queue.popleft()))
             if not self.queue:
                 threading.currentThread().suspend()
-            self.conn.send(pickle.dumps(self.queue.popleft()))
+                break
+
+    def send2all(self, resp, include_self=False):
+        for client_el in self.room.players_list:
+            if include_self:
+                client_el.queue.append(resp)
+                client_el.send_thread.resume()
+            else:
+                if client_el is not self:
+                    client_el.queue.append(resp)
+                    client_el.send_thread.resume()
+
+    def to_queue(self, resp):
+        self.queue.append(resp)

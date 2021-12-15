@@ -1,12 +1,15 @@
+import copy
+
 import pygame as pg
 from utils import *
-from render import Vector2
 
 BASE_BG_COLOR = (255, 255, 255)
 BASE_HOVERED_COLOR = (173, 173, 173)
 BASE_DISABLED_COLOR = (128, 128, 128)
 BASE_CLICKED_COLOR = (36, 36, 36)
 BASE_FOCUSED_COLOR = (44, 146, 230)
+BASE_SCROLLBAR_BG = (201, 201, 201)
+BASE_SCROLLBAR_DOT = (77, 77, 77)
 ALPHA_COLOR = pg.SRCALPHA
 
 
@@ -25,25 +28,29 @@ class ImageSprite(pg.sprite.Sprite):
 
 
 class SurfaceSprite(pg.sprite.Sprite):
-    def __init__(self, pos: tuple, size: tuple, color, border_color=None, width=0,
+    def __init__(self, pos: tuple, size: tuple, color, border_color=None, width=1,
                  border_radius: bool or int = False, group=None):
         """border radius: if false - 0; if true - min(*size) // 4; if int - value"""
         super().__init__(group if group is not None else [])
-        self.pos, self.size = pos, size
+        self.pos, self._size = pos, size
         if type(border_radius) in (int, float):
             self.border_radius = int(border_radius)
         elif type(border_radius) == bool:
             self.border_radius = min(*size) // 4 if border_radius else 0
         self.width = width
         self.color = color
-        self.border_color = border_color if border_color else ALPHA_COLOR
+        self.border_color = border_color  # --- if border_color else ALPHA_COLOR
         self.rect = pg.rect.Rect(*pos, *size)
 
-    def draw(self, color: tuple = None, border_color: tuple = None):  # means render
-        image = pg.surface.Surface(self.size, masks=self.color)
+    def draw(self, color: tuple = None, border_color=None):  # means render
+        image = pg.surface.Surface(self._size)
         border_color = border_color if border_color else self.border_color
-        pg.draw.rect(image, border_color, pg.rect.Rect(0, 0, *self.size), width=self.width,
+        color = color if color else self.color
+        pg.draw.rect(image, color, pg.rect.Rect(0, 0, *self._size),
                      border_radius=self.border_radius)
+        if self.border_color:
+            pg.draw.rect(image, border_color, pg.rect.Rect(0, 0, *self._size), width=self.width,
+                         border_radius=self.border_radius)
         self.image = image
 
     def resize(self, k):
@@ -52,6 +59,16 @@ class SurfaceSprite(pg.sprite.Sprite):
         self.size[0] *= k
         self.size[1] *= k
         self.width, self.border_radius = self.width * k, self.border_radius * k
+
+    def set_geometry(self, pos, size):
+        self.pos, self.size = pos, size
+        self.rect = pg.rect.Rect(*self.pos, *self.size)
+
+    def copy(self):
+        self.image = None
+        copy_ = copy.deepcopy(self)
+        copy_.image = self.image
+        return copy_
 
 
 class BaseGroup:
@@ -74,9 +91,9 @@ class BaseGroup:
 
 class Text:
     def __init__(self, text: str, font_family: str = 'standard', font_size=90, antialias=True,
-                 border_color: tuple or pg.color.Color = BASE_BG_COLOR, full_font=None, italic=False,
+                 color: tuple or pg.color.Color = BASE_BG_COLOR, full_font=None, italic=False,
                  bold=False):  # TODO -> color
-        self.text, self.antialias, self.border_color = text, antialias, border_color
+        self.text, self.antialias, self.color = text, antialias, color
         self.bold, self.italic = bold, italic
         if not full_font:
             if font_family == 'standard':
@@ -87,9 +104,9 @@ class Text:
         full_font.italic = italic
         self.font = full_font
 
-    def render(self, text: str = None, border_color: tuple = None):  # TODO : -> color
+    def render(self, text: str = None, color: tuple = None):
         return self.font.render(self.text if not text else text, self.antialias,
-                                self.border_color if not border_color else border_color)
+                                self.color if not color else color)
 
     def set_color(self, border_color: tuple):
         self.border_color = border_color
@@ -107,17 +124,23 @@ class Label(SurfaceSprite):
         super().__init__(pos, size, color, border_color=border_color,
                          width=width, border_radius=border_radius,
                          group=group if group is not None else [])
-        self.text = text
+        self.textlabel = text
         self.draw()
 
     def draw(self, color: tuple = None, border_color: tuple = None):
         super(Label, self).draw(color, border_color)
-        rendered = self.text.render()
+        rendered = self.textlabel.render()
         self.image.blit(rendered,
-                        rendered.get_rect(center=(self.size[0] // 2, self.size[1] // 2)))
+                        rendered.get_rect(center=(self._size[0] // 2, self._size[1] // 2)))
 
     def update(self):
         self.draw()
+
+    def set_text(self, val):
+        self.textlabel.text = val
+
+    def text(self):
+        return self.textlabel.text
 
 
 class InteractiveMixin:
@@ -132,7 +155,7 @@ class InteractiveMixin:
 
     def handle_hover(self):
         pos = pg.mouse.get_pos()
-        (x, y), (w, h) = self.pos, self.size
+        (x, y), (w, h) = self.pos, self._size
         if x <= pos[0] <= x + w and y <= pos[1] <= y + h:
             self.hovered = True
         else:
@@ -149,6 +172,8 @@ class Button(SurfaceSprite, InteractiveMixin):
         """size: if true - fit content | paddings: (horizontal, vertical)"""
         InteractiveMixin.__init__(self, disabled, disabled_color, hovered_color)
         self.func, self.args = func, args
+        self.scale_text, self.paddings_factor = scale_text, paddings_factor
+        self.fst_border_radius = border_radius
         if scale_text:
             ...
         if isinstance(label, Text):
@@ -166,13 +191,31 @@ class Button(SurfaceSprite, InteractiveMixin):
             size = (size[0], int(self.label.get_height() * paddings_factor[1]))
         if type(size) == tuple and self.mode == 'i':
             self.label = pg.transform.smoothscale(self.label, (min(size), min(size)))
+        self._size = size
         SurfaceSprite.__init__(self, pos, size, color, width=width, border_radius=border_radius,
                                # important 2 place here
                                border_color=border_color,
                                group=group if group is not None else [])
-        self.size = size
         self.draw()
         self.base_label = self.label.copy()
+        self.hovered_label = changeColor(self.image, self.hovered_color)
+        self.disabled_label = changeColor(self.image, self.disabled_color)
+
+    @property
+    def size(self):
+        return self._size
+
+    @size.setter
+    def size(self, val: tuple):
+        if val == self._size:
+            return
+        self._size = val
+        if type(val) == tuple and self.mode == 'i':
+            self.label = pg.transform.smoothscale(self.label, (min(val), min(val)))
+        if type(self.fst_border_radius) == bool:
+            self.border_radius = min(*val) // 4 if self.fst_border_radius else 0
+        self.base_label = self.label.copy()
+        self.draw()
         self.hovered_label = changeColor(self.image, self.hovered_color)
         self.disabled_label = changeColor(self.image, self.disabled_color)
 
@@ -191,14 +234,7 @@ class Button(SurfaceSprite, InteractiveMixin):
         if self.disabled:
             self.label = self.disabled_label
             return
-        # if self.mode == 't':
-        #     if self.hovered:
-        #         self.current_color = self.hovered_color
-        #         self.label = self.text_label.render(border_color=self.hovered_color)
-        #     elif self.current_color != self.border_color:
-        #         self.current_color = self.border_color
-        #         self.label = self.text_label.render()
-        # elif self.mode == 'i':
+
         elif self.hovered:
             self.label = self.hovered_label
         elif self.label != self.base_label:
@@ -214,8 +250,9 @@ class Button(SurfaceSprite, InteractiveMixin):
 
     def handle_click(self):
         if self.hovered and self.func:
-            for _ in pg.event.get(pg.MOUSEBUTTONUP):
-                self.func(*self.args)
+            for e in pg.event.get(pg.MOUSEBUTTONUP):
+                if e.button == 1:
+                    self.func(*self.args)
 
 
 class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non editable
@@ -231,7 +268,7 @@ class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non e
         self.focused, self.focused_color = focused, focused_color
         self.placeholder = placeholder if placeholder else ''
         self.textlabel = Text(self.placeholder,
-                              border_color=BASE_HOVERED_COLOR, italic=True, full_font=full_font)
+                              color=BASE_HOVERED_COLOR, italic=True, full_font=full_font)
         self.rendered_text = self.textlabel.render()
         self.text: str = self.textlabel.text
         self.draw()
@@ -240,7 +277,7 @@ class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non e
         SurfaceSprite.draw(self, color, border_color)
         self.image.blit(self.rendered_text,
                         self.rendered_text.get_rect(
-                            center=(self.size[0] // 2, self.size[1] // 2)))
+                            center=(self._size[0] // 2, self._size[1] // 2)))
 
     def update(self, *args, **kwargs) -> None:
         super(LineEdit, self).update(*args, **kwargs)
@@ -290,3 +327,92 @@ class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non e
 
     def set_text(self, text):
         self.textlabel.set_text(text)
+
+    def text(self):
+        return self.textlabel.text
+
+
+class ListWidget(SurfaceSprite):
+    def __init__(self, pos: tuple, size: tuple, color, *elements, shown=4, border_color=None,
+                 group=None, paddings=(5, 5, 10, 5),
+                 width=0, border_radius=False, scrollbar=True, sb_bg_color=BASE_SCROLLBAR_BG,
+                 sb_dot_color=BASE_SCROLLBAR_DOT):
+        """paddings: left, top right"""
+        SurfaceSprite.__init__(self, pos, size, color, width=width, border_radius=border_radius,
+                               border_color=border_color,
+                               group=group if group is not None else [])
+        self.sb_bg_color, self.sb_dot_color = sb_bg_color, sb_dot_color
+        self.paddings = [p / 100 for p in paddings]
+        self.shown = shown
+        self.elements = []
+        for el in elements:
+            print(type(el))
+            if hasattr(el, 'group'):
+                el.group = None
+            self.elements.append(el)
+        self.start_el = 0
+        self.dot_y = 0
+        self.init()
+        self.render()
+        self.has_sb = scrollbar
+
+    def init(self):
+        width = self._size[0]
+        height = self._size[1]
+        p = self.paddings
+        temp_h = (height - height * p[1] - height * p[3]) // self.shown  # element height
+        h = (temp_h - temp_h // 10)
+        self.sb_rect = pg.Rect(width - p[2] * width + width // 22.5, height * p[1], width // 45, height - height * p[1] - height * p[3])
+        self.w = w = width - p[0] * width - p[2] * width
+
+        for ind, el in enumerate(self.elements[self.start_el:self.start_el + self.shown]):
+            el.rect = pg.Rect(width * p[0], h * ind + height * p[1] + temp_h // 10 * ind,
+                              w, h)
+            el.pos = self.pos[0] + el.rect.x, self.pos[1] + el.rect.y
+            el.size = el.rect.size
+            el.label = el.base_label
+        self.dot_step = self.sb_rect.h / (len(self.elements) - self.shown + 1) if len(self.elements) else 0
+
+    def render(self):
+        super(ListWidget, self).draw(border_color=ALPHA_COLOR)
+        for el in self.elements[self.start_el:self.start_el + self.shown]:
+            el.draw()
+            self.image.blit(el.image, el.rect)
+        pg.draw.rect(self.image, self.border_color, pg.rect.Rect(0, 0, *self._size), width=self.width,
+                     border_radius=self.border_radius)
+        pg.draw.rect(self.image, self.sb_bg_color, self.sb_rect, border_radius=self.sb_rect.w)
+        pg.draw.rect(self.image, self.sb_dot_color, (round(self.sb_rect.x + self.sb_rect.w * 0.2), round(self.sb_rect.y * 1.2 + self.dot_y),
+                                                     round(self.sb_rect.w * 0.6), round(self.sb_rect.w * 2)),
+                     border_radius=int(self.sb_rect.w))
+
+    def update(self) -> None:
+        super().update()
+        self.handle_scroll()
+        for el in self.elements:
+            el.update()
+        self.render()
+
+    def extend(self, items):
+        start = len(self.elements)
+        self.elements.extend(items)
+        self.init()
+        return start  # index
+
+    def set(self, items):
+        self.elements = items
+        self.init()
+
+    def pop(self, ind):
+        return self.elements.pop(ind)
+
+    def handle_scroll(self):
+        for e in pg.event.get(pg.MOUSEWHEEL):
+            if e.y > 0:
+                self.start_el -= 1 if self.start_el > 0 else 0
+                self.dot_y -= self.dot_step if self.start_el > 0 else 0
+                self.init()
+            elif e.y < 0:
+                self.start_el += 1 if self.start_el < len(self.elements) - self.shown else 0
+                self.dot_y += self.dot_step if self.start_el < len(self.elements) - self.shown else 0
+                self.init()
+            ...

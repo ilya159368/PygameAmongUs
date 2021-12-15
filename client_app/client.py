@@ -4,7 +4,7 @@ import threading
 import sys
 from config import Config
 # from shared_files.protocol import *
-from shared_files.thread_ import CustomThread
+from thread_ import CustomThread
 
 
 class Client(socket.socket):
@@ -21,6 +21,8 @@ class Client(socket.socket):
             app.send_thread = self.send_thread
             self.send_thread.start()
             self.recv_thread.start()
+            self.send_thread.suspend()
+            self.recv_thread.suspend()
             app.add_before_exit(self.close)
             app.add_before_exit(self.send_thread.kill)
             app.add_before_exit(self.recv_thread.kill)
@@ -30,20 +32,22 @@ class Client(socket.socket):
 
     def send_data(self):
         while 1:
+            if self.queue_to:
+                data = self.queue_to.popleft()
+                try:
+                    self.send(data)
+                    print('send')
+                except socket.error:
+                    self.close()
+                    return -1
             if not self.queue_to:
                 threading.currentThread().suspend()
-            data = self.queue_to.popleft()
-            try:
-                self.send(data)
-                print('send')
-            except socket.error:
-                self.close()
-                return -1
+                break
 
     def recv_data(self):
         while 1:
             try:
-                data = self.recv(1024)
+                data = self.recv(4096)
             except socket.timeout as e:
                 err = e.args[0]
                 if err == 'timed out':

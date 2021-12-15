@@ -2,7 +2,6 @@ import pygame
 
 import render
 import time
-from app import App
 
 Vector2 = render.Vector2
 
@@ -20,7 +19,7 @@ class Player:
         self.abs_origin = Vector2(0, 0)  # для интерполяции
         self.velocity = Vector2(0, 0)
         self.color = 0  # пригодится в будущем
-        self.id = 0
+        # self.id = 0
         self.name = ""
         self.last_net_update = 0.0
         self.side = False
