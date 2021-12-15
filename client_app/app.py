@@ -326,7 +326,7 @@ class App:
                         else:
                             self.id = resp.kwargs['id']
                             self.token = resp.kwargs['token']
-                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max"]}')
+                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
                             self.show_wait()
                         print(self.id)
                     elif resp.operation == 'create':
@@ -340,7 +340,7 @@ class App:
                             self.show_wait()
                         print(self.id, 'ok')
                     elif resp.operation == 'connected':
-                        self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{self.room_max}')
+                        self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
                     elif resp.operation == 'quit':
                         self.show_find()
                         ...
