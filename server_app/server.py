@@ -55,7 +55,7 @@ class Server(socket.socket):
         client = sorted(self.clients_list, key=lambda x: x.conn is conn, reverse=True)[0]
         while 1:
             try:
-                data = conn.recv(1024)
+                data = conn.recv(4096)
             except socket.error:
                 conn.close()
                 if client.room:
@@ -147,7 +147,7 @@ class Server(socket.socket):
                     conn.send(pickle.dumps(Token('register', status=result)))
 
                 elif req.operation == 'change_name':
-                    result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'])
+                    result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'], self.cur)
                     conn.send(pickle.dumps(Token('change_name', status=result)))
 
             print(req)

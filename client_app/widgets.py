@@ -125,6 +125,8 @@ class Label(SurfaceSprite):
                          width=width, border_radius=border_radius,
                          group=group if group is not None else [])
         self.textlabel = text
+        self.text = self.textlabel.text
+        self.text_default = self.text
         self.draw()
 
     def draw(self, color: tuple = None, border_color: tuple = None):
@@ -136,11 +138,12 @@ class Label(SurfaceSprite):
     def update(self):
         self.draw()
 
-    def set_text(self, val):
-        self.textlabel.text = val
+    def set_text(self, text):
+        self.textlabel.text = text
+        self.text = text
 
-    def text(self):
-        return self.textlabel.text
+    def set_default(self):
+        self.set_text(self.text_default)
 
 
 class InteractiveMixin:
@@ -283,9 +286,9 @@ class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non e
         super(LineEdit, self).update(*args, **kwargs)
         self.handle_hover()
         self.handle_click()
-        if not self.focused and not self.text:
+        if not self.focused and not self.textlabel.text:
             self.textlabel.text = self.placeholder
-            self.text = self.placeholder
+            self.text = ''
             self.textlabel.set_italic()
             self.rendered_text = self.textlabel.render()
         if self.disabled:
@@ -327,9 +330,10 @@ class LineEdit(SurfaceSprite, InteractiveMixin):  # TODO: make placeholder non e
 
     def set_text(self, text):
         self.textlabel.set_text(text)
+        self.text = text
 
-    def text(self):
-        return self.textlabel.text
+    def set_default(self):
+        self.set_text('')
 
 
 class ListWidget(SurfaceSprite):

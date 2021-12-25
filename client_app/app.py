@@ -34,6 +34,19 @@ class App:
 
     # end service funcs --------------
 
+    def __vg_getter(self):
+        return self._visible_group
+
+    def __vg_setter(self, vg):
+        if hasattr(self, '_visible_group'):
+            self._visible_group: pg.sprite.Group
+            for sprite in self._visible_group.sprites():
+                if type(sprite) in (Label, LineEdit):
+                    sprite.set_default()
+        self._visible_group = vg
+
+    visible_group = property(__vg_getter, __vg_setter)
+
     def __init__(self):
         # service attrs --------
         self.before_exit = []  # list of functions
@@ -216,13 +229,13 @@ class App:
                                          ALPHA, group=self.create_group)
         # waiting
         self.btn_wait_close = Button((w - w // 32 - small_img_button_size[0], h // 18),
-                                      small_img_button_size, pg.SRCALPHA,
+                                     small_img_button_size, pg.SRCALPHA,
                                      self.close_img,
                                      group=self.wait_group,
                                      func=self.wait_close)
         self.wait_label = Label((w // 3, h // 2 - h // 16), (w // 3, h // 8),
-                                         Text('1/10', full_font=FONT_BIG, color=WHITE),
-                                         ALPHA, group=self.wait_group)
+                                Text('1/10', full_font=FONT_BIG, color=WHITE),
+                                ALPHA, group=self.wait_group)
         # PREDEFINE
         self.visible_group = self.menu_group
 
@@ -237,6 +250,7 @@ class App:
             if time.time() - self.last_update_time > 1 / 16:
                 self.cl_move()
                 self.last_update_time = time.time()
+            self.player_list[self.id].frame_update()
             self.camera_pos = self.player_list[self.id].abs_origin
             self.draw_players()
         else:
@@ -248,9 +262,13 @@ class App:
 
     def draw_players(self):
         for player in self.player_list:
-            player.frame_update()
+            if player != self.player_list[self.id]:
+                player.frame_update()
             w2s = self.world_to_screen(Vector2(player.abs_origin.x - 50, player.abs_origin.y - 100))
-            self.screen.blit(self.amogus_right if player.side else self.amogus_left, w2s.to_pg())
+            # self.screen.blit(
+            #     FONT_DEFAULT.render(f'{player.abs_origin.x}|{player.abs_origin.y}', False, WHITE),
+            #     (w2s.x - 200, w2s.y - 100))
+            self.screen.blit(player.amogus_right if player.side else player.amogus_left, w2s.to_pg())
 
     def run(self):
         while self.running:
@@ -281,13 +299,15 @@ class App:
             # drawing / recv ---------
             if self.queue_from:
                 if self.in_game:
-                    while self.queue_from:
+                    print(len(self.queue_from))
+                    for _ in range(len(self.player_list) - 1):
                         try:
                             resp = self.from_queue()
                             self.player_list[resp.kwargs['id']].net_update(resp.kwargs['origin'],
                                                                            resp.kwargs['velocity'])
                         except:
                             print('lost|empty queue')
+                    print(len(self.queue_from))
                 else:
                     resp = self.from_queue()
                     if resp.operation == 'find':
@@ -316,6 +336,8 @@ class App:
                         for pl_data in resp.kwargs['players']:
                             pl = Player()
                             pl.color = pl_data
+                            pl.amogus_left = changeColor(self.amogus_left, pl.color)
+                            pl.amogus_right = changeColor(self.amogus_right, pl.color)
                             temp_list.append(pl)
                         self.player_list = temp_list
                         self.show_game()
@@ -489,7 +511,7 @@ class App:
         # if not 5 <= max_ <= 10:
         #     self.create_status_label.set_text('incorrect max players (from 5 till 10)')
         #     return
-        if self.create_status_label.text():
+        if self.create_status_label.text:
             self.create_status_label.set_text('')
         self.to_queue(Token('create', name=self.create_title.text,
                             max=max_))

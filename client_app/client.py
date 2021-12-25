@@ -36,7 +36,7 @@ class Client(socket.socket):
                 data = self.queue_to.popleft()
                 try:
                     self.send(data)
-                    print('send')
+                    # print('send')
                 except socket.error:
                     self.close()
                     return -1

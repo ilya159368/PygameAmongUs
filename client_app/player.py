@@ -25,6 +25,8 @@ class Player:
         self.side = False
         self.rect = (0, 0, 0, 0)
         self.image = pygame.Surface((30, 30))
+        self.amogus_right = None
+        self.amogus_left = None
 
     def net_update(self, origin, velocity):
         self.last_origin = self.origin.copy()
@@ -36,6 +38,8 @@ class Player:
 
     def frame_update(self):
         frame_fraction = (time.time() - self.last_net_update) * 16
+        if frame_fraction > 1:
+            frame_fraction = 1
         self.abs_origin.x = lerp(self.last_origin.x, self.origin.x, frame_fraction)
         self.abs_origin.y = lerp(self.last_origin.y, self.origin.y, frame_fraction)
 

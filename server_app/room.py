@@ -15,4 +15,4 @@ class Room:
         self.players_list.remove(client)
 
     def __repr__(self):
-        return f'{self.token} cnt:{len(self.players_list)} av:{self.available}'
+        return f'Room<tok:{self.token} cnt:{len(self.players_list)} av:{self.available}>'
