@@ -171,12 +171,13 @@ class Button(SurfaceSprite, InteractiveMixin):
                  border_color: tuple or pg.color.Color = None,
                  group=None, scale_text=True, disabled=False, disabled_color=BASE_DISABLED_COLOR,
                  width=0, border_radius=False, hovered_color=BASE_HOVERED_COLOR,
-                 paddings_factor: tuple = (1.2, 1.2)):
+                 paddings_factor: tuple = (1.2, 1.2), handle_hover=True, handle_disabled=True):
         """size: if true - fit content | paddings: (horizontal, vertical)"""
         InteractiveMixin.__init__(self, disabled, disabled_color, hovered_color)
         self.func, self.args = func, args
         self.scale_text, self.paddings_factor = scale_text, paddings_factor
         self.fst_border_radius = border_radius
+        self.to_handle_hover, self.to_handle_disabled = handle_hover, handle_disabled
         if scale_text:
             ...
         if isinstance(label, Text):
@@ -235,10 +236,11 @@ class Button(SurfaceSprite, InteractiveMixin):
         super(Button, self).update(*args, **kwargs)
         self.handle_hover()
         if self.disabled:
-            self.label = self.disabled_label
+            if self.to_handle_disabled:
+                self.label = self.disabled_label
             return
 
-        elif self.hovered:
+        elif self.hovered and self.to_handle_hover:
             self.label = self.hovered_label
         elif self.label != self.base_label:
             self.label = self.base_label

@@ -1,5 +1,7 @@
+import math
 import pickle
 import time
+from task import *
 
 from protocol import *
 from widgets import *
@@ -72,6 +74,14 @@ class App:
         self.camera_pos = Vector2(0, 0)
         self.last_update_time = 0
         self.is_host = False
+        self.tasks_dict = {WiresTask: (
+        (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
+                           NumbersTask: (928, 1685)}
+        self.vents_dict = {}
+        self.interact_dict = {**self.tasks_dict, **self.vents_dict}
+        self.active_object = None
+        self.can_move = False
+        self.in_vent = False
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
@@ -247,7 +257,7 @@ class App:
             self.screen.fill((0, 0, 0))
             self.screen.blit(self.map_image,
                              self.world_to_screen(Vector2(0, 0)).to_pg())  # TODO blit once ?
-            if time.time() - self.last_update_time > 1 / 16:
+            if time.time() - self.last_update_time > 1 / 16 and self.can_move:
                 self.cl_move()
                 self.last_update_time = time.time()
             self.player_list[self.id].frame_update()
@@ -256,8 +266,12 @@ class App:
         else:
             self.screen.blit(self.bg_img, (0, 0))
         self.visible_group.draw(self.screen)
+        if self.active_object:
+            self.active_object.draw()
 
     def update(self):
+        if self.active_object:
+            self.active_object.update()
         self.visible_group.update()
 
     def draw_players(self):
@@ -268,7 +282,7 @@ class App:
             # self.screen.blit(
             #     FONT_DEFAULT.render(f'{player.abs_origin.x}|{player.abs_origin.y}', False, WHITE),
             #     (w2s.x - 200, w2s.y - 100))
-            self.screen.blit(player.amogus_right if player.side else player.amogus_left, w2s.to_pg())
+            self.screen.blit(player.get_image(), w2s.to_pg())
 
     def run(self):
         while self.running:
@@ -289,6 +303,31 @@ class App:
                 elif e.type == pg.KEYDOWN and e.key == pg.K_j:
                     self.to_queue(
                         Token('join', token=self.token))  # TODO: room = None when restart !!!
+                elif e.type == pg.KEYDOWN and e.key == pg.K_e:
+                    # расстояние от центра задания до центра игрока <= дальности взаимодействия
+                    player = self.player_list[self.id]
+                    pl_rect = player.get_collision_rect(player.origin)
+                    pl_center = (
+                    (pl_rect[0] * 2 + pl_rect[2]) // 2, (pl_rect[1] * 2 + pl_rect[3]) // 2)
+                    for cls, tup in self.tasks_dict.items():
+                        for center in tup:
+                            if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
+                                    center[1] - pl_center[1]) ** 2) <= player.interact_range:
+                                if type(cls) == NumbersTask:
+                                    self.active_object = cls(self.width // 10, self.height // 6,
+                                                             self.height // 6 * 4 // 5, self.screen,
+                                                             FONT_DEFAULT)
+                                else:
+                                    self.active_object = cls((self.width // 10, self.height // 6),
+                                                             (self.width // 10 * 8,
+                                                              self.height // 6 * 4),
+                                                             self.screen)
+                                self.can_move = False
+                    for center in self.vents_dict:
+                        if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
+                                center[1] - pl_center[1]) ** 2) <= player.interact_range:
+
+                            self.can_move = False
 
             # move to server
             if self.in_game and not self.offline:
@@ -336,8 +375,7 @@ class App:
                         for pl_data in resp.kwargs['players']:
                             pl = Player()
                             pl.color = pl_data
-                            pl.amogus_left = changeColor(self.amogus_left, pl.color)
-                            pl.amogus_right = changeColor(self.amogus_right, pl.color)
+                            pl.load_anims()
                             temp_list.append(pl)
                         self.player_list = temp_list
                         self.show_game()
@@ -348,8 +386,8 @@ class App:
                         else:
                             self.id = resp.kwargs['id']
                             self.token = resp.kwargs['token']
-                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
                             self.show_wait()
+                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
                         print(self.id)
                     elif resp.operation == 'create':
                         if resp.kwargs['status'] == 'bad':
@@ -358,8 +396,8 @@ class App:
                             self.id = resp.kwargs['id']
                             self.token = resp.kwargs['token']
                             self.is_host = True
-                            self.wait_label.set_text(f'1/{self.room_max}')
                             self.show_wait()
+                            self.wait_label.set_text(f'1/{self.room_max}')
                         print(self.id, 'ok')
                     elif resp.operation == 'connected':
                         self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
@@ -386,6 +424,11 @@ class App:
                 pass
         pg.quit()
         exit()
+
+    def show_vents(self, center):
+        self.screen.fill((0, 0, 0, 125))
+
+
 
     def world_to_screen(self, world: Vector2):
         return Vector2(self.width / 2 + (world.x - self.camera_pos.x),

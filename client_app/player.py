@@ -1,13 +1,56 @@
+from PIL import Image
+import utils
+
 import pygame
 
 import render
 import time
 
 Vector2 = render.Vector2
+Color = pygame.Color
+
+pygame.init()
+
+
+def load_amogus_image(name):
+    fullname = "images/Player - Among Us/Individual Sprites/" + name
+    # image = Image.open(fullname)
+    # image = utils.color_to_alpha(image, (0, 0, 0, 255))
+    # raw_str = image.tobytes("raw", 'RGBA')
+    # surface = pygame.image.fromstring(raw_str, image.size, 'RGBA')
+    surface = pygame.image.load(fullname)
+    return pygame.transform.smoothscale(surface, (100, 120))
+
+
+anims = {
+    "walk": [
+        load_amogus_image("Walk/walk1.png"),
+        load_amogus_image("Walk/walk2.png"),
+        load_amogus_image("Walk/walk3.png"),
+        load_amogus_image("Walk/walk4.png"),
+        load_amogus_image("Walk/walk5.png"),
+        load_amogus_image("Walk/walk6.png"),
+        load_amogus_image("Walk/walk7.png"),
+        load_amogus_image("Walk/walk8.png"),
+        load_amogus_image("Walk/walk9.png"),
+        load_amogus_image("Walk/walk10.png"),
+        load_amogus_image("Walk/walk11.png"),
+        load_amogus_image("Walk/walk12.png"),
+    ]
+}
+idle = pygame.transform.smoothscale(pygame.image.load("images/amogus.png"), (100, 120))
 
 
 def lerp(x1, x2, perc):
     return x1 + (x2 - x1) * perc
+
+
+def clamp(v, min, max):
+    if v > max:
+        v = max
+    if v < min:
+        v = min
+    return v
 
 
 class Player:
@@ -18,15 +61,18 @@ class Player:
         self.last_origin = Vector2(0, 0)
         self.abs_origin = Vector2(0, 0)  # для интерполяции
         self.velocity = Vector2(0, 0)
-        self.color = 0  # пригодится в будущем
+        self.color = (0, 0, 0)  # пригодится в будущем
         # self.id = 0
         self.name = ""
         self.last_net_update = 0.0
         self.side = False
         self.rect = (0, 0, 0, 0)
         self.image = pygame.Surface((30, 30))
-        self.amogus_right = None
-        self.amogus_left = None
+        self.walk_animation_left = []
+        self.walk_animation_right = []
+        self.idle_animation = []
+        self.frames = 0
+        self.interact_range = 200
 
     def net_update(self, origin, velocity):
         self.last_origin = self.origin.copy()
@@ -35,6 +81,7 @@ class Player:
         if self.velocity.x != 0:
             self.side = self.velocity.x > 0
         self.last_net_update = time.time()
+        self.frames += 1
 
     def frame_update(self):
         frame_fraction = (time.time() - self.last_net_update) * 16
@@ -45,5 +92,37 @@ class Player:
 
     def get_collision_rect(self, origin):
         mins = origin - Vector2(15, 30)
-        maxs = origin + Vector2(15, 0)
-        return (mins.x, mins.y, maxs.x, maxs.y)
+        # maxs = origin + Vector2(15, 0)
+        return (mins.x, mins.y, 30, 30)  # TODO check
+
+    def load_anims(self):
+        color = self.color
+        for x in range(100):
+            for y in range(120):
+                pixel = idle.get_at((x, y))
+                if pixel == (255, 0, 0):
+                    idle.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+        self.idle_animation = [
+            pygame.transform.flip(idle, True, False),
+            idle
+        ]
+        for anim in anims["walk"]:
+            for x in range(100):
+                for y in range(120):
+                    pixel = anim.get_at((x, y))
+                    if pixel == (255, 0, 0):
+                        anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+            self.walk_animation_left.append(pygame.transform.flip(anim, True, False))
+            self.walk_animation_right.append(anim)
+
+    def get_image(self):
+        if self.side:
+            if self.velocity.length_sqr() > 0:
+                return self.walk_animation_right[self.frames % 10]
+            else:
+                return self.idle_animation[1]
+        else:
+            if self.velocity.length_sqr() > 0:
+                return self.walk_animation_left[self.frames % 10]
+            else:
+                return self.idle_animation[0]
