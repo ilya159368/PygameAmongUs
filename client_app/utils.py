@@ -1,5 +1,5 @@
 import pygame
-from PIL import Image, ImageMath
+from PIL import Image
 
 
 def colorize(image, newColor):

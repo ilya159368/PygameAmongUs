@@ -126,3 +126,4 @@ class Player:
                 return self.walk_animation_left[self.frames % 10]
             else:
                 return self.idle_animation[0]
+

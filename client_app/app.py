@@ -76,11 +76,10 @@ class App:
         self.is_host = False
         self.tasks_dict = {WiresTask: (
         (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
-                           NumbersTask: (928, 1685)}
-        self.vents_dict = {}
-        self.interact_dict = {**self.tasks_dict, **self.vents_dict}
+                           NumbersTask: ((928, 1685),)}
+        self.vents_list = []
         self.active_object = None
-        self.can_move = False
+        self.can_move = True
         self.in_vent = False
         self.add_before_exit(self.delete_room)
 
@@ -260,14 +259,18 @@ class App:
             if time.time() - self.last_update_time > 1 / 16 and self.can_move:
                 self.cl_move()
                 self.last_update_time = time.time()
+
             self.player_list[self.id].frame_update()
-            self.camera_pos = self.player_list[self.id].abs_origin
+            if not self.in_vent:
+                self.camera_pos = self.player_list[self.id].abs_origin
             self.draw_players()
         else:
             self.screen.blit(self.bg_img, (0, 0))
         self.visible_group.draw(self.screen)
         if self.active_object:
             self.active_object.draw()
+        if self.in_vent:
+            self.screen.fill((0, 0, 0, 125))
 
     def update(self):
         if self.active_object:
@@ -282,6 +285,8 @@ class App:
             # self.screen.blit(
             #     FONT_DEFAULT.render(f'{player.abs_origin.x}|{player.abs_origin.y}', False, WHITE),
             #     (w2s.x - 200, w2s.y - 100))
+            if player == self.player_list[self.id] and self.in_vent:
+                return
             self.screen.blit(player.get_image(), w2s.to_pg())
 
     def run(self):
@@ -306,14 +311,11 @@ class App:
                 elif e.type == pg.KEYDOWN and e.key == pg.K_e:
                     # расстояние от центра задания до центра игрока <= дальности взаимодействия
                     player = self.player_list[self.id]
-                    pl_rect = player.get_collision_rect(player.origin)
-                    pl_center = (
-                    (pl_rect[0] * 2 + pl_rect[2]) // 2, (pl_rect[1] * 2 + pl_rect[3]) // 2)
+                    pl_center = player.origin - Vector2(0, 60)
                     for cls, tup in self.tasks_dict.items():
                         for center in tup:
-                            if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
-                                    center[1] - pl_center[1]) ** 2) <= player.interact_range:
-                                if type(cls) == NumbersTask:
+                            if (Vector2(*center) - pl_center).length() <= player.interact_range:
+                                if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
                                                              self.height // 6 * 4 // 5, self.screen,
                                                              FONT_DEFAULT)
@@ -323,11 +325,54 @@ class App:
                                                               self.height // 6 * 4),
                                                              self.screen)
                                 self.can_move = False
-                    for center in self.vents_dict:
+                    for center in self.vents_list:
                         if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
                                 center[1] - pl_center[1]) ** 2) <= player.interact_range:
-
+                            self.show_vent(center)
                             self.can_move = False
+                elif self.in_vent and e.key == pg.K_LEFT:
+                    self.start_vent -= 1
+                    if self.start_vent < 0:
+                        self.start_vent = len(self.vents_list) - 1 + self.start_vent
+                    self.camera_pos = self.vents_list[self.start_vent]
+                elif self.in_vent and e.key == pg.K_RIGHT:
+                    self.start_vent += 1
+                    if self.start_vent > len(self.vents_list) - 1:
+                        self.start_vent = 0
+                    self.camera_pos = self.vents_list[self.start_vent]
+                elif self.in_vent and e.key == pg.K_e:
+                    self.exit_vent()
+                elif e.type == pg.KEYDOWN and e.key == pg.K_q:
+                    local_player = self.player_list[self.id]
+                    if not local_player.imposter:
+                        continue
+                    nearest_player = 0
+                    nearest_dist = 1000
+                    for i in range(len(self.player_list)):
+                        if i == self.id:
+                            continue
+                        player = self.player_list[i]
+                        if not player.alive:
+                            continue
+                        dist = (player.origin - local_player.origin).length()
+                        if dist < nearest_dist:
+                            nearest_dist = dist
+                            nearest_player = i
+                    if nearest_dist < local_player.interact_range:
+                        self.player_list[nearest_player].alive = False
+                        # тут килляем игрока на сервере с айди nearest_player
+                elif e.type == pg.KEYDOWN and e.key == pg.K_f:
+                    local_player = self.player_list[self.id]
+                    for i in range(len(self.player_list)):
+                        if i == self.id:
+                            continue
+                        player = self.player_list[i]
+                        if player.alive:
+                            continue
+                        dist = (player.origin - local_player.origin).length()
+                        if dist < local_player.interact_range:
+                            self.show_chat()
+                            # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
 
             # move to server
             if self.in_game and not self.offline:
@@ -425,10 +470,14 @@ class App:
         pg.quit()
         exit()
 
-    def show_vents(self, center):
-        self.screen.fill((0, 0, 0, 125))
+    def show_vent(self, center):
+        self.in_vent = True
+        self.start_vent = self.vents_list.index(center)
 
-
+    def exit_vent(self):
+        self.in_vent = False
+        self.player_list[self.id].origin = Vector2(self.start_vent)
+        self.start_vent = None
 
     def world_to_screen(self, world: Vector2):
         return Vector2(self.width / 2 + (world.x - self.camera_pos.x),
@@ -442,8 +491,6 @@ class App:
         in_backward = keys[pg.K_s] or keys[pg.K_DOWN]
         in_left = keys[pg.K_a] or keys[pg.K_LEFT]
         in_right = keys[pg.K_d] or keys[pg.K_RIGHT]
-        in_use = keys[pg.K_e]
-        # in_attack = keyboard.is_pressed(0x1)
 
         velocity = Vector2(0, 0)
 

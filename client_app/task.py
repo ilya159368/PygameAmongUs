@@ -169,8 +169,8 @@ class NumbersTask(SurfaceSprite):
         for i in self.field.sprites():
             i.update()
 """
-import pygame as pg
 from random import shuffle
+from widgets import ListWidget
 
 
 class NumbersTask:
@@ -299,6 +299,7 @@ class WiresTask:
                         break
             self.to_draw_line = False
 
+
 if __name__ == '__main__':
 
     pg.init()
@@ -311,18 +312,21 @@ if __name__ == '__main__':
     clock = pg.time.Clock()
     all_sprites = pg.sprite.Group()
     running = True
-
-    wires = WiresTask((WIDTH // 2 - WIDTH // 8, HEIGHT // 2 - HEIGHT // 6), (WIDTH // 4, HEIGHT // 3), screen)
+    # wires = WiresTask((WIDTH // 2 - WIDTH // 8, HEIGHT // 2 - HEIGHT // 6), (WIDTH // 4, HEIGHT // 3), screen)
+    # button = Button((100, 100), (50, 100), (255, 0, 0), Text('btn', color=(255, 255, 255)), width=20,
+                    # border_color=(255, 255, 255))
+    widget = ListWidget((100, 100), (200, 500), (255, 255, 255), border_color=(255, 0, 0), width=5, border_radius=90)
 
     while running:
         WIDTH, HEIGHT = pg.display.get_window_size()
-        wires.update()
+        # wires.update()
+        widget.update()
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
-
+        widget.draw()
         screen.fill(pg.Color(0, 0, 0))
-        wires.draw()
+        # wires.draw()
 
         pg.display.flip()
         clock.tick(FPS)
