@@ -1,6 +1,3 @@
-from PIL import Image
-import utils
-
 import pygame
 
 import render
@@ -12,14 +9,14 @@ Color = pygame.Color
 pygame.init()
 
 
-def load_amogus_image(name):
+def load_amogus_image(name, size=(100, 120)):
     fullname = "images/Player - Among Us/Individual Sprites/" + name
     # image = Image.open(fullname)
     # image = utils.color_to_alpha(image, (0, 0, 0, 255))
     # raw_str = image.tobytes("raw", 'RGBA')
     # surface = pygame.image.fromstring(raw_str, image.size, 'RGBA')
     surface = pygame.image.load(fullname)
-    return pygame.transform.smoothscale(surface, (100, 120))
+    return pygame.transform.smoothscale(surface, size)
 
 
 anims = {
@@ -35,8 +32,9 @@ anims = {
         load_amogus_image("Walk/walk9.png"),
         load_amogus_image("Walk/walk10.png"),
         load_amogus_image("Walk/walk11.png"),
-        load_amogus_image("Walk/walk12.png"),
-    ]
+        load_amogus_image("Walk/walk12.png")
+    ],
+    "dead": load_amogus_image("Death/Dead0033.png", (100, 100))
 }
 idle = pygame.transform.smoothscale(pygame.image.load("images/amogus.png"), (100, 120))
 
@@ -63,7 +61,7 @@ class Player:
         self.velocity = Vector2(0, 0)
         self.color = (0, 0, 0)  # пригодится в будущем
         # self.id = 0
-        self.name = ""
+        self.name = "PENGUIN"
         self.last_net_update = 0.0
         self.side = False
         self.rect = (0, 0, 0, 0)
@@ -84,6 +82,8 @@ class Player:
         self.frames += 1
 
     def frame_update(self):
+        if not self.alive:
+            return
         frame_fraction = (time.time() - self.last_net_update) * 16
         if frame_fraction > 1:
             frame_fraction = 1
@@ -114,8 +114,15 @@ class Player:
                         anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
             self.walk_animation_left.append(pygame.transform.flip(anim, True, False))
             self.walk_animation_right.append(anim)
+        for x in range(100):
+            for y in range(100):
+                pixel = anims["dead"].get_at((x, y))
+                if pixel == (255, 0, 0):
+                    anims["dead"].set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
 
     def get_image(self):
+        if not self.alive:
+            return anims["dead"]
         if self.side:
             if self.velocity.length_sqr() > 0:
                 return self.walk_animation_right[self.frames % 10]

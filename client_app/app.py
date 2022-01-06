@@ -12,6 +12,10 @@ import pygame as pg
 import threading
 from client import Client
 
+from Timer import Timer
+
+from MY_TEST import VotingList
+
 Vector2 = render.Vector2
 
 
@@ -61,7 +65,7 @@ class App:
         self.player_size = (100, 120)
         self.player_speed = 60
         self.running = True
-        self.signed_in = True
+        self.signed_in = False
         self.in_game = False
         self.offline = False
         self.connecting = True
@@ -75,8 +79,8 @@ class App:
         self.last_update_time = 0
         self.is_host = False
         self.tasks_dict = {WiresTask: (
-        (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
-                           NumbersTask: ((928, 1685),)}
+            (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
+            NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),)}
         self.vents_list = []
         self.active_object = None
         self.can_move = True
@@ -272,6 +276,8 @@ class App:
         if self.in_vent:
             self.screen.fill((0, 0, 0, 125))
 
+        # self.timer.draw()
+
     def update(self):
         if self.active_object:
             self.active_object.update()
@@ -314,11 +320,16 @@ class App:
                     pl_center = player.origin - Vector2(0, 60)
                     for cls, tup in self.tasks_dict.items():
                         for center in tup:
-                            if (Vector2(*center) - pl_center).length() <= player.interact_range:
+                            if (Vector2(*center) - pl_center).length() <= player.interact_range or \
+                                    ((Vector2(*center) - pl_center).length() <= 300 and cls is VotingList):  # для
+                                # радиуса стола
                                 if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
                                                              self.height // 6 * 4 // 5, self.screen,
                                                              FONT_DEFAULT)
+                                elif cls is VotingList:
+                                    self.active_object = cls((500, 100), (853, 582), self.player_list, self.screen,
+                                                             player.imposter)
                                 else:
                                     self.active_object = cls((self.width // 10, self.height // 6),
                                                              (self.width // 10 * 8,
@@ -417,9 +428,10 @@ class App:
                         print(rooms)
                     elif resp.operation == 'init':
                         temp_list = []
-                        for pl_data in resp.kwargs['players']:
+                        for name, color in resp.kwargs['players']:
                             pl = Player()
-                            pl.color = pl_data
+                            pl.color = color
+                            pl.name = name
                             pl.load_anims()
                             temp_list.append(pl)
                         self.player_list = temp_list
@@ -580,7 +592,11 @@ class App:
     def show_find(self):
         self.find()
         self.show_find_status = False
-        self.visible_group = self.find_group
+
+        if self.signed_in:
+            self.visible_group = self.find_group
+        else:
+            self.show_signin()
 
     def show_create(self):
         self.visible_group = self.create_group
