@@ -1,6 +1,5 @@
 import math
 import pickle
-import time
 from task import *
 
 from protocol import *
@@ -80,11 +79,15 @@ class App:
         self.is_host = False
         self.tasks_dict = {WiresTask: (
             (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
-            NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),)}
+            NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),), GarbageTask: ((4910, 4170), (5523, 528),),
+            SendEnergy: ((3364, 2558),), ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
+                                                         (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
+
         self.vents_list = []
         self.active_object = None
         self.can_move = True
         self.in_vent = False
+
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
@@ -307,13 +310,14 @@ class App:
                 elif e.type in (pg.WINDOWRESIZED, pg.WINDOWSHOWN):
                     self.resize_event()
                 # gameplay
-                elif e.type == pg.KEYDOWN and e.key == pg.K_c and not self.in_game:
-                    self.to_queue(Token('create', name='name', max=2))
-                elif e.type == pg.KEYDOWN and e.key == pg.K_f:
-                    self.to_queue(Token('find'))
+                # elif e.type == pg.KEYDOWN and e.key == pg.K_c and not self.in_game:
+                #     self.to_queue(Token('create', name='name', max=2))
+                # elif e.type == pg.KEYDOWN and e.key == pg.K_f:
+                #     self.to_queue(Token('find'))
                 elif e.type == pg.KEYDOWN and e.key == pg.K_j:
                     self.to_queue(
                         Token('join', token=self.token))  # TODO: room = None when restart !!!
+
                 elif e.type == pg.KEYDOWN and e.key == pg.K_e:
                     # расстояние от центра задания до центра игрока <= дальности взаимодействия
                     player = self.player_list[self.id]
@@ -330,6 +334,11 @@ class App:
                                 elif cls is VotingList:
                                     self.active_object = cls((500, 100), (853, 582), self.player_list, self.screen,
                                                              player.imposter)
+                                # elif cls in (ReceiveEnergy, SendEnergy):
+                                #     self.active_object = cls((self.width // 10, self.height // 6),
+                                #                              (self.width // 10 * 8,
+                                #                               self.height // 6 * 4),
+                                #                              self.screen)
                                 else:
                                     self.active_object = cls((self.width // 10, self.height // 6),
                                                              (self.width // 10 * 8,
@@ -370,7 +379,8 @@ class App:
                             nearest_dist = dist
                             nearest_player = i
                     if nearest_dist < local_player.interact_range:
-                        self.player_list[nearest_player].alive = False
+                        # self.player_list[nearest_player].alive = False
+                        self.to_queue(Token('kill', dead=self.player_list[nearest_player].name))
                         # тут килляем игрока на сервере с айди nearest_player
                 elif e.type == pg.KEYDOWN and e.key == pg.K_f:
                     local_player = self.player_list[self.id]
@@ -382,7 +392,7 @@ class App:
                             continue
                         dist = (player.origin - local_player.origin).length()
                         if dist < local_player.interact_range:
-                            self.show_chat()
+                            self.to_queue(Token('report'))
                             # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
 
             # move to server
@@ -395,11 +405,21 @@ class App:
             if self.queue_from:
                 if self.in_game:
                     print(len(self.queue_from))
-                    for _ in range(len(self.player_list) - 1):
+                    for _ in range(len(self.queue_from)):
                         try:
-                            resp = self.from_queue()
-                            self.player_list[resp.kwargs['id']].net_update(resp.kwargs['origin'],
-                                                                           resp.kwargs['velocity'])
+                            if len(self.queue_from):
+                                resp = self.from_queue()
+                                if resp.operation == 'move':
+                                    self.player_list[resp.kwargs['id']].net_update(resp.kwargs['origin'],
+                                                                                   resp.kwargs['velocity'])
+                                elif resp.operation == 'report':
+                                    self.active_object = VotingList((500, 100), (853, 582), self.player_list,
+                                                                    self.screen, self.player_list[self.id].imposter)
+                                    [pl.set_meet_point() for pl in self.player_list]
+                                    self.can_move = False
+                                elif resp.operation == 'kill':
+                                    self.player_list[[pl.name for pl in self.player_list].index(
+                                        resp.kwargs['dead'])].alive = False
                         except:
                             print('lost|empty queue')
                     print(len(self.queue_from))
@@ -428,13 +448,16 @@ class App:
                         print(rooms)
                     elif resp.operation == 'init':
                         temp_list = []
-                        for name, color in resp.kwargs['players']:
+                        for i, (name, color) in enumerate(resp.kwargs['players']):
                             pl = Player()
                             pl.color = color
                             pl.name = name
+                            pl.id = i
                             pl.load_anims()
+                            pl.set_meet_point()
                             temp_list.append(pl)
                         self.player_list = temp_list
+                        self.player_list[self.id].imposter = True
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':

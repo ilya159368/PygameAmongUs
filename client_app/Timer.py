@@ -30,10 +30,10 @@ class ProgressBar:
         self.completed = 0  # количество залитых сегментов
 
     def draw(self):
-        pg.draw.rect(self.screen, 'gray', (self.x, self.y, self.w, self.h), 3)
+        pg.draw.rect(self.screen, 'gray', (self.x, self.y, self.w, self.h), 5)
         pg.draw.rect(self.screen, 'green', (self.x, self.y, self.segment_len * self.completed, self.h))
         for segment in range(self.segments + 1):
-            pg.draw.rect(self.screen, 'gray', (self.x + segment * self.segment_len, self.y, 10, self.h), 0)
+            pg.draw.rect(self.screen, 'gray', (self.x + segment * self.segment_len, self.y, 3, self.h), 0)
 
 
 if __name__ == '__main__':
@@ -51,7 +51,7 @@ if __name__ == '__main__':
 
     # task = SendEnergy((100, 100), (440, 441), screen)
     # timer = Timer((100, 100), (50, 50), screen, 'white', 60)
-    bar = ProgressBar((100, 100), (500, 50), screen, 10)
+    bar = ProgressBar((100, 100), (700, 50), screen, 50)
     while running:
         # timer.update()
         WIDTH, HEIGHT = pg.display.get_window_size()

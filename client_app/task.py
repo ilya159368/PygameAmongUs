@@ -1,8 +1,7 @@
 import random
 
 import pygame as pg
-from random import shuffle
-from widgets import Button, Text, SurfaceSprite
+from player import clamp
 
 """
 5813
@@ -298,6 +297,140 @@ class WiresTask:
                         self.drew_lines.append((self.active_color, self.start, ((el[0] * 2 + el[2]) // 2, (el[1] * 2 + el[3]) // 2)))
                         break
             self.to_draw_line = False
+
+
+class GarbageTask:
+    bg = pg.transform.smoothscale(pg.image.load("images/garbage_bg.png"), (818, 822))
+    handle = pg.transform.smoothscale(pg.image.load("images/garbage_handle.png"), (200, 62))
+    clear = pg.transform.smoothscale(pg.image.load("images/garbage_clear.png"), (818, 822))
+
+    def __init__(self, pos, scr):
+        self.screen = scr
+        self.size = (818, 822)
+        self.pos = pos
+        self.done = False
+        self.handle_pos = 0
+        self.mouse_offset = 0
+        self.moving_handle = False
+
+    def draw(self):
+        if self.done:
+            self.screen.blit(self.clear, self.pos)
+        else:
+            self.screen.blit(self.bg, self.pos)
+        if self.handle_pos < 125:
+            pg.draw.rect(self.screen, pg.Color(17, 24, 26), (self.pos[0] + 705, self.pos[1] + 260 + self.handle_pos + 25, 20, 125 - self.handle_pos))
+            pg.draw.rect(self.screen, pg.Color(17, 24, 26), (self.pos[0] + 660, self.pos[1] + 260 + self.handle_pos + 25, 20, 125 - self.handle_pos))
+            pg.draw.rect(self.screen, pg.Color(100, 129, 139), (self.pos[0] + 707, self.pos[1] + 262 + self.handle_pos + 25, 16, 121 - self.handle_pos))
+            pg.draw.rect(self.screen, pg.Color(100, 129, 139), (self.pos[0] + 662, self.pos[1] + 262 + self.handle_pos + 25, 16, 121 - self.handle_pos))
+        else:
+            pg.draw.rect(self.screen, pg.Color(17, 24, 26), (self.pos[0] + 705, self.pos[1] + 382, 20, self.handle_pos - 100))
+            pg.draw.rect(self.screen, pg.Color(17, 24, 26), (self.pos[0] + 660, self.pos[1] + 382, 20, self.handle_pos - 100))
+            pg.draw.rect(self.screen, pg.Color(100, 129, 139), (self.pos[0] + 707, self.pos[1] + 400, 16,self.handle_pos - 105))
+            pg.draw.rect(self.screen, pg.Color(100, 129, 139), (self.pos[0] + 662, self.pos[1] + 400, 16, self.handle_pos - 105))
+        self.screen.blit(self.handle, (self.pos[0] + 600, self.pos[1] + 260 + self.handle_pos))
+
+    def update(self):
+        for e in pg.event.get(pg.MOUSEBUTTONDOWN):
+            if e.button == 1 and self.pos[0] + 600 < e.pos[0] < self.pos[1] + 780 and self.pos[0] + 260 < e.pos[1] < self.pos[1] + 300:
+                self.mouse_offset = e.pos[1] + self.pos[1]
+                self.moving_handle = True
+        for e in pg.event.get(pg.MOUSEBUTTONUP):
+            if e.button == 1:
+                self.moving_handle = False
+        for e in pg.event.get(pg.MOUSEMOTION):
+            if self.moving_handle:
+                self.handle_pos = clamp(e.pos[1] + self.pos[1] - self.mouse_offset, 0, 250)
+                if self.handle_pos == 250:
+                    self.done = True
+        if not self.moving_handle:
+            self.handle_pos = self.handle_pos - self.handle_pos * 0.07
+
+
+class Slider(pg.sprite.Sprite):
+    image = pg.image.load('images/slider.png')
+
+    def __init__(self, pos: tuple, size: tuple, screen, board_size: tuple):
+        super().__init__()
+        self.x, self.y = pos
+        self.w, self.h = size
+        self.screen = screen
+        self.mouse_hover = False
+        self.capture = False
+
+        self.done = False
+
+        self.board_x, self.board_y = board_size
+
+    def draw(self):
+        self.screen.blit(self.image, (self.x, self.y))
+
+    def hover(self):
+        pos = pg.mouse.get_pos()
+        if self.x <= pos[0] <= self.x + self.w and self.y <= pos[1] <= self.y + self.h:
+            self.mouse_hover = True
+        else:
+            self.mouse_hover = False
+
+    def update(self):
+        if self.capture:
+            for e in pg.event.get(pg.MOUSEBUTTONUP):
+                if e.button == 1:
+                    self.capture = False
+                    if e.pos[1] > self.board_y + 360:
+                        self.y = self.board_y + 360
+                    elif e.pos[1] < self.board_y + 286:
+                        self.y = self.board_y + 286
+                        self.done = True
+                    else:
+                        self.y = e.pos[1]
+
+        self.hover()
+        if self.mouse_hover:
+            for e in pg.event.get(pg.MOUSEBUTTONDOWN):
+                if e.button == 1:
+                    self.capture = True
+
+
+class SendEnergy(pg.sprite.Sprite):
+    image = pg.image.load('images/send_energy.png')
+
+    def __init__(self, pos: tuple, size: tuple, screen, special=None):
+        super().__init__()
+        self.x, self.y = pos
+        self.w, self.h = size
+        self.screen = screen
+
+        self.slider = Slider((self.x + 317, self.y + 324), (44, 37), self.screen, (self.x, self.y))
+
+    def draw(self):
+        self.screen.blit(self.image, (self.x, self.y))
+        self.slider.draw()
+
+    def update(self):
+        self.slider.update()
+
+
+class ReceiveEnergy(pg.sprite.Sprite):
+    image = pg.image.load('images/start.png')
+
+    def __init__(self, pos: tuple, size: tuple, screen):
+        super().__init__()
+        self.x, self.y = pos
+        self.w, self.h = size
+        self.screen = screen
+
+        self.done = False
+
+    def draw(self):
+        self.screen.blit(self.image, (self.x, self.y))
+
+    def update(self):
+        for e in pg.event.get(pg.MOUSEBUTTONUP):
+            if e.button == 1:
+                if 274 + self.x < e.pos[0] < 290 + self.x and 139 + self.y < e.pos[1] < 202 + self.y:
+                    self.image = pg.image.load('images/done.png')
+                    self.done = True
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 import pygame
+import math
 
 import render
 import time
@@ -16,7 +17,7 @@ def load_amogus_image(name, size=(100, 120)):
     # raw_str = image.tobytes("raw", 'RGBA')
     # surface = pygame.image.fromstring(raw_str, image.size, 'RGBA')
     surface = pygame.image.load(fullname)
-    return pygame.transform.smoothscale(surface, size)
+    return pygame.transform.scale(surface, size)
 
 
 anims = {
@@ -60,7 +61,7 @@ class Player:
         self.abs_origin = Vector2(0, 0)  # для интерполяции
         self.velocity = Vector2(0, 0)
         self.color = (0, 0, 0)  # пригодится в будущем
-        # self.id = 0
+        self.id = 0
         self.name = "PENGUIN"
         self.last_net_update = 0.0
         self.side = False
@@ -133,4 +134,7 @@ class Player:
                 return self.walk_animation_left[self.frames % 10]
             else:
                 return self.idle_animation[0]
+
+    def set_meet_point(self):
+        self.origin = Vector2(4832 + math.cos(self.id * 36) * 250, 1080 + math.sin(self.id * 36) * 250)
 
