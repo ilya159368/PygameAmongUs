@@ -414,7 +414,8 @@ class App:
                                                                                    resp.kwargs['velocity'])
                                 elif resp.operation == 'report':
                                     self.active_object = VotingList((500, 100), (853, 582), self.player_list,
-                                                                    self.screen, self.player_list[self.id].imposter)
+                                                                    self.screen, self.player_list[self.id].imposter,
+                                                                    func=self.close_task)
                                     [pl.set_meet_point() for pl in self.player_list]
                                     self.can_move = False
                                 elif resp.operation == 'kill':
@@ -670,6 +671,10 @@ class App:
             time.sleep(0.3)  # TODO fix maybe
         else:
             print('delete: empty token')
+
+    def close_task(self):
+        self.active_object = None
+        self.can_move = True
 
 
 def main():

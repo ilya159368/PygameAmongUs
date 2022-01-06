@@ -94,7 +94,7 @@ class PlayerProfile(pg.sprite.Sprite):
 class VotingList(pg.sprite.Sprite):
     image = pg.image.load('images/tablet.png')
 
-    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, group=None):
+    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, func=None):
         super().__init__()
         # ____РАСПОЛОЖЕНИЕ ТАБЛЕТА С КНОПКАМИ____
         self.x = pos[0]
@@ -125,7 +125,7 @@ class VotingList(pg.sprite.Sprite):
         self.choice = None  # выбор игрока
 
         self.timer = Timer((self.x + 670, self.y + 490), (100, 50), self.screen, 'black', 60)
-
+        self.func = func
         self.fill_profiles()
         # ____КОНЕЦ ЧАСТИ ПЛАНШЕТА____
 
@@ -136,8 +136,10 @@ class VotingList(pg.sprite.Sprite):
             profile.draw()
         self.screen.blit(self.skip_btn.image, self.skip_btn.rect)
         self.screen.blit(self.chat_btn.image, self.chat_btn.rect)
-
-        self.timer.draw()
+        if self.timer.r >= 0:
+            self.timer.draw()
+        else:
+            self.func()
 
     def fill_profiles(self):
         half1 = self.players[:len(self.players) - len(self.players) // 2]

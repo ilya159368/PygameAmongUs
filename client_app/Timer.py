@@ -13,10 +13,12 @@ class Timer:
         self.count = countdown
         self.start_time = time.time()
 
+        self.r = int(self.count - (time.time() - self.start_time))
+
     def draw(self):
-        r = int(self.count - (time.time() - self.start_time))
-        if r >= 0:
-            self.screen.blit(self.font.render(str(r), 1, self.color), (self.x, self.y))
+        self.r = int(self.count - (time.time() - self.start_time))
+        if self.r >= 0:
+            self.screen.blit(self.font.render(str(self.r), 1, self.color), (self.x, self.y))
 
 
 class ProgressBar:
