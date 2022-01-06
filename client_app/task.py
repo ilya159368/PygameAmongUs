@@ -2,6 +2,7 @@ import random
 
 import pygame as pg
 from player import clamp
+import time
 
 """
 5813
@@ -173,17 +174,19 @@ from widgets import ListWidget
 
 
 class NumbersTask:
-    def __init__(self, x, y, size, screen, font):
+    def __init__(self, x, y, size, screen, font, callback):
         self.x = x
         self.y = y
         self.size = size
         self.w = w = size * 5
         self.h = h = size * 2
+        self.callback = callback
 
         self.center = ((x * 2 + w) // 2, (y * 2 + h) // 2)
 
         self.font = font
-
+        self.done = False
+        self.done_time = 0
         self.screen = screen
         f = list(range(1, 11))
         shuffle(f)
@@ -228,7 +231,6 @@ class NumbersTask:
             elif self.pressed == 10:
                 self.last_pressed = 0
                 self.pressed = [[[self.pressed[i][j], 0] for j in range(5)] for i in range(2)]
-                # тут типо тоже выход
             else:
                 self.last_pressed = 0
                 self.pressed = [[[self.pressed[i][j], 0] for j in range(5)] for i in range(2)]  # тут типо выход
@@ -244,12 +246,19 @@ class NumbersTask:
             if e.button == 1:
                 self.click(e.pos)
 
+        if self.last_pressed == 10 and not self.done:
+            self.done = True
+            self.done_time = time.time()
+
+        if time.time() - self.done_time > 1.0 and self.done:
+            self.callback()
+
+
 
 class WiresTask:
-
     bg = pg.image.load('images/wires.png')
 
-    def __init__(self, pos, size, screen):
+    def __init__(self, pos, size, screen, callback):
         self.size = size
         self.pos = pos
         self.center = ((self.pos[0] * 2 + self.size[0]) // 2, (self.pos[1] * 2 + self.size[1]) // 2)
@@ -259,6 +268,7 @@ class WiresTask:
         random.shuffle(self.left_wires)
         random.shuffle(self.right_wires)
         self.bg = pg.transform.smoothscale(self.bg, self.size)
+        self.callback = callback
 
         x, y = self.pos
         w, h = self.size
@@ -304,14 +314,16 @@ class GarbageTask:
     handle = pg.transform.smoothscale(pg.image.load("images/garbage_handle.png"), (200, 62))
     clear = pg.transform.smoothscale(pg.image.load("images/garbage_clear.png"), (818, 822))
 
-    def __init__(self, pos, scr):
+    def __init__(self, pos, size, scr, callback):
         self.screen = scr
-        self.size = (818, 822)
+        self.size = size
         self.pos = pos
         self.done = False
         self.handle_pos = 0
         self.mouse_offset = 0
         self.moving_handle = False
+        self.done_time = 0
+        self.callback = callback
 
     def draw(self):
         if self.done:
@@ -343,65 +355,67 @@ class GarbageTask:
                 self.handle_pos = clamp(e.pos[1] + self.pos[1] - self.mouse_offset, 0, 250)
                 if self.handle_pos == 250:
                     self.done = True
+                    self.done_time = time.time()
         if not self.moving_handle:
             self.handle_pos = self.handle_pos - self.handle_pos * 0.07
+
+        if time.time() - self.done_time > 1.0 and self.done:
+            self.callback()
 
 
 class Slider(pg.sprite.Sprite):
     image = pg.image.load('images/slider.png')
 
-    def __init__(self, pos: tuple, size: tuple, screen, board_size: tuple):
+    def __init__(self, pos: tuple, size: tuple, screen, board_size: tuple, callback):
         super().__init__()
         self.x, self.y = pos
         self.w, self.h = size
         self.screen = screen
         self.mouse_hover = False
         self.capture = False
-
+        self.callback = callback
         self.done = False
+        self.done_time = 0
 
         self.board_x, self.board_y = board_size
 
     def draw(self):
         self.screen.blit(self.image, (self.x, self.y))
 
-    def hover(self):
-        pos = pg.mouse.get_pos()
-        if self.x <= pos[0] <= self.x + self.w and self.y <= pos[1] <= self.y + self.h:
-            self.mouse_hover = True
-        else:
-            self.mouse_hover = False
-
     def update(self):
-        if self.capture:
-            for e in pg.event.get(pg.MOUSEBUTTONUP):
-                if e.button == 1:
-                    self.capture = False
-                    if e.pos[1] > self.board_y + 360:
-                        self.y = self.board_y + 360
-                    elif e.pos[1] < self.board_y + 286:
-                        self.y = self.board_y + 286
-                        self.done = True
-                    else:
-                        self.y = e.pos[1]
+        for e in pg.event.get(pg.MOUSEBUTTONDOWN):
+            if e.button == 1:
+                self.capture = self.x <= e.pos[0] <= self.x + self.w and self.y <= e.pos[1] <= self.y + self.h
 
-        self.hover()
-        if self.mouse_hover:
-            for e in pg.event.get(pg.MOUSEBUTTONDOWN):
-                if e.button == 1:
-                    self.capture = True
+        for e in pg.event.get(pg.MOUSEBUTTONUP):
+            if e.button == 1:
+                self.capture = False
+
+        for e in pg.event.get(pg.MOUSEMOTION):
+            if self.capture:
+                self.y = e.pos[1] - 20
+                if self.y > self.board_y + 360:
+                    self.y = self.board_y + 360
+                elif self.y < self.board_y + 286:
+                    self.y = self.board_y + 286
+                    self.done = True
+                    self.done_time = time.time()
+
+        if self.done and time.time() - self.done_time > 1:
+            self.callback()
 
 
 class SendEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/send_energy.png')
 
-    def __init__(self, pos: tuple, size: tuple, screen, special=None):
+    def __init__(self, pos: tuple, size: tuple, screen, callback, special=None):
         super().__init__()
         self.x, self.y = pos
         self.w, self.h = size
         self.screen = screen
+        self.callback = callback
 
-        self.slider = Slider((self.x + 317, self.y + 324), (44, 37), self.screen, (self.x, self.y))
+        self.slider = Slider((self.x + 317, self.y + 324), (44, 37), self.screen, (self.x, self.y), callback)
 
     def draw(self):
         self.screen.blit(self.image, (self.x, self.y))
@@ -414,13 +428,14 @@ class SendEnergy(pg.sprite.Sprite):
 class ReceiveEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/start.png')
 
-    def __init__(self, pos: tuple, size: tuple, screen):
+    def __init__(self, pos: tuple, size: tuple, screen, callback):
         super().__init__()
         self.x, self.y = pos
         self.w, self.h = size
         self.screen = screen
-
+        self.done_time = 0
         self.done = False
+        self.callback = callback
 
     def draw(self):
         self.screen.blit(self.image, (self.x, self.y))
@@ -431,6 +446,10 @@ class ReceiveEnergy(pg.sprite.Sprite):
                 if 274 + self.x < e.pos[0] < 290 + self.x and 139 + self.y < e.pos[1] < 202 + self.y:
                     self.image = pg.image.load('images/done.png')
                     self.done = True
+                    self.done_time = time.time()
+
+        if self.done and time.time() - self.done_time > 1:
+            self.callback()
 
 
 if __name__ == '__main__':
@@ -448,7 +467,7 @@ if __name__ == '__main__':
     # wires = WiresTask((WIDTH // 2 - WIDTH // 8, HEIGHT // 2 - HEIGHT // 6), (WIDTH // 4, HEIGHT // 3), screen)
     # button = Button((100, 100), (50, 100), (255, 0, 0), Text('btn', color=(255, 255, 255)), width=20,
                     # border_color=(255, 255, 255))
-    widget = ListWidget((100, 100), (200, 500), (255, 255, 255), border_color=(255, 0, 0), width=5, border_radius=90)
+    widget = SendEnergy((100, 100), (440, 441), screen, pg.quit)
 
     while running:
         WIDTH, HEIGHT = pg.display.get_window_size()
@@ -457,8 +476,8 @@ if __name__ == '__main__':
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
-        widget.draw()
         screen.fill(pg.Color(0, 0, 0))
+        widget.draw()
         # wires.draw()
 
         pg.display.flip()

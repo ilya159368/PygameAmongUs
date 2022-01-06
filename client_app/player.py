@@ -62,7 +62,7 @@ class Player:
         self.velocity = Vector2(0, 0)
         self.color = (0, 0, 0)  # пригодится в будущем
         self.id = 0
-        self.name = "PENGUIN"
+        self.name = ""
         self.last_net_update = 0.0
         self.side = False
         self.rect = (0, 0, 0, 0)
@@ -71,7 +71,7 @@ class Player:
         self.walk_animation_right = []
         self.idle_animation = []
         self.frames = 0
-        self.interact_range = 200
+        self.interact_range = 120
 
     def net_update(self, origin, velocity):
         self.last_origin = self.origin.copy()
@@ -83,8 +83,6 @@ class Player:
         self.frames += 1
 
     def frame_update(self):
-        if not self.alive:
-            return
         frame_fraction = (time.time() - self.last_net_update) * 16
         if frame_fraction > 1:
             frame_fraction = 1
@@ -136,5 +134,5 @@ class Player:
                 return self.idle_animation[0]
 
     def set_meet_point(self):
-        self.origin = Vector2(4832 + math.cos(self.id * 36) * 250, 1080 + math.sin(self.id * 36) * 250)
+        self.origin = Vector2(4832 + math.cos(self.id * 36) * 300, 1080 + math.sin(self.id * 36) * 300)
 

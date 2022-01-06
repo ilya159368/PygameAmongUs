@@ -83,6 +83,8 @@ class App:
             SendEnergy: ((3364, 2558),), ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
                                                          (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
 
+        pg.display.set_caption("Pymogus")
+
         self.vents_list = []
         self.active_object = None
         self.can_move = True
@@ -291,12 +293,12 @@ class App:
             if player != self.player_list[self.id]:
                 player.frame_update()
             w2s = self.world_to_screen(Vector2(player.abs_origin.x - 50, player.abs_origin.y - 100))
-            # self.screen.blit(
-            #     FONT_DEFAULT.render(f'{player.abs_origin.x}|{player.abs_origin.y}', False, WHITE),
-            #     (w2s.x - 200, w2s.y - 100))
             if player == self.player_list[self.id] and self.in_vent:
                 return
             self.screen.blit(player.get_image(), w2s.to_pg())
+            rfont = FONT_DEFAULT.render(player.name, False, WHITE)
+            self.screen.blit(rfont,
+                             (w2s.x - rfont.get_width() / 2 + 50, w2s.y - 100))
 
     def run(self):
         while self.running:
@@ -330,10 +332,10 @@ class App:
                                 if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
                                                              self.height // 6 * 4 // 5, self.screen,
-                                                             FONT_DEFAULT)
+                                                             FONT_DEFAULT, callback=self.close_task)
                                 elif cls is VotingList:
                                     self.active_object = cls((500, 100), (853, 582), self.player_list, self.screen,
-                                                             player.imposter)
+                                                             player.imposter, callback=self.close_task)
                                 # elif cls in (ReceiveEnergy, SendEnergy):
                                 #     self.active_object = cls((self.width // 10, self.height // 6),
                                 #                              (self.width // 10 * 8,
@@ -343,7 +345,7 @@ class App:
                                     self.active_object = cls((self.width // 10, self.height // 6),
                                                              (self.width // 10 * 8,
                                                               self.height // 6 * 4),
-                                                             self.screen)
+                                                             self.screen, callback=self.close_task)
                                 self.can_move = False
                     for center in self.vents_list:
                         if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
