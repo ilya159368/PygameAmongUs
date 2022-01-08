@@ -11,7 +11,7 @@ import pygame as pg
 import threading
 from client import Client
 
-from Timer import Timer
+from timer import Timer
 
 from MY_TEST import VotingList
 
@@ -79,9 +79,11 @@ class App:
         self.is_host = False
         self.tasks_dict = {WiresTask: (
             (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
-            NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),), GarbageTask: ((4910, 4170), (5523, 528),),
-            SendEnergy: ((3364, 2558),), ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
-                                                         (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
+            NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),),
+            GarbageTask: ((4910, 4170), (5523, 528),),
+            SendEnergy: ((3364, 2558),),
+            ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
+                            (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
 
         pg.display.set_caption("Pymogus")
 
@@ -327,15 +329,15 @@ class App:
                     for cls, tup in self.tasks_dict.items():
                         for center in tup:
                             if (Vector2(*center) - pl_center).length() <= player.interact_range or \
-                                    ((Vector2(*center) - pl_center).length() <= 300 and cls is VotingList):  # для
+                                    ((Vector2(
+                                        *center) - pl_center).length() <= 300 and cls is VotingList):  # для
                                 # радиуса стола
                                 if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
                                                              self.height // 6 * 4 // 5, self.screen,
                                                              FONT_DEFAULT, callback=self.close_task)
                                 elif cls is VotingList:
-                                    self.active_object = cls((500, 100), (853, 582), self.player_list, self.screen,
-                                                             player.imposter, callback=self.close_task)
+                                    self.to_queue(Token('voting'))
                                 # elif cls in (ReceiveEnergy, SendEnergy):
                                 #     self.active_object = cls((self.width // 10, self.height // 6),
                                 #                              (self.width // 10 * 8,
@@ -374,7 +376,7 @@ class App:
                         if i == self.id:
                             continue
                         player = self.player_list[i]
-                        if not player.alive:
+                        if not player.alive or player.imposter:
                             continue
                         dist = (player.origin - local_player.origin).length()
                         if dist < nearest_dist:
@@ -394,7 +396,7 @@ class App:
                             continue
                         dist = (player.origin - local_player.origin).length()
                         if dist < local_player.interact_range:
-                            self.to_queue(Token('report'))
+                            self.to_queue(Token('voting'))
                             # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
 
             # move to server
@@ -412,17 +414,16 @@ class App:
                             if len(self.queue_from):
                                 resp = self.from_queue()
                                 if resp.operation == 'move':
-                                    self.player_list[resp.kwargs['id']].net_update(resp.kwargs['origin'],
-                                                                                   resp.kwargs['velocity'])
-                                elif resp.operation == 'report':
-                                    self.active_object = VotingList((500, 100), (853, 582), self.player_list,
-                                                                    self.screen, self.player_list[self.id].imposter,
-                                                                    func=self.close_task)
-                                    [pl.set_meet_point() for pl in self.player_list]
-                                    self.can_move = False
+                                    self.player_list[resp.kwargs['id']].net_update(
+                                        resp.kwargs['origin'],
+                                        resp.kwargs['velocity'])
+                                elif resp.operation == 'voting':
+                                    self.show_voting()
                                 elif resp.operation == 'kill':
                                     self.player_list[[pl.name for pl in self.player_list].index(
                                         resp.kwargs['dead'])].alive = False
+                                elif resp.operation == 'end_voting':
+                                    self.close_voting()
                         except:
                             print('lost|empty queue')
                     print(len(self.queue_from))
@@ -451,16 +452,16 @@ class App:
                         print(rooms)
                     elif resp.operation == 'init':
                         temp_list = []
-                        for i, (name, color) in enumerate(resp.kwargs['players']):
+                        for i, (name, color, imposter) in enumerate(resp.kwargs['players']):
                             pl = Player()
                             pl.color = color
                             pl.name = name
+                            pl.imposter = imposter
                             pl.id = i
                             pl.load_anims()
                             pl.set_meet_point()
                             temp_list.append(pl)
                         self.player_list = temp_list
-                        self.player_list[self.id].imposter = True
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':
@@ -674,7 +675,18 @@ class App:
         else:
             print('delete: empty token')
 
+    def show_voting(self):
+        self.active_object = VotingList((500, 100), (853, 582), self.player_list, self.screen,
+                                        self.player_list[self.id].imposter, send_func=self.to_queue)
+        [pl.set_meet_point() for pl in self.player_list]
+        self.can_move = False
+
     def close_task(self):
+        self.active_object = None
+        self.can_move = True
+        self.to_queue(Token('task'))
+
+    def close_voting(self):
         self.active_object = None
         self.can_move = True
 

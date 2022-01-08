@@ -254,7 +254,6 @@ class NumbersTask:
             self.callback()
 
 
-
 class WiresTask:
     bg = pg.image.load('images/wires.png')
 
@@ -280,6 +279,7 @@ class WiresTask:
         self.to_draw_line = False
         self.start = None
         self.active_color = None
+        self.drew_colors = []
         self.drew_lines = []
 
     def draw(self):
@@ -294,17 +294,18 @@ class WiresTask:
     def update(self):
         for e in pg.event.get(pg.MOUSEBUTTONDOWN):
             if e.button == 1:
-                for ind, el in enumerate(self.left_rects):
-                    if el[0] <= e.pos[0] <= el[0] + el[2] and el[1] <= e.pos[1] <= el[1] + el[3]:
+                for (ind, el), color in zip(enumerate(self.left_rects), self.left_wires):
+                    if el[0] <= e.pos[0] <= el[0] + el[2] and el[1] <= e.pos[1] <= el[1] + el[3] and color not in self.drew_colors:
                         self.to_draw_line = True
                         self.start = ((el[0] * 2 + el[2]) // 2, (el[1] * 2 + el[3]) // 2)
                         self.active_color = self.left_wires[ind]
                         break
         for e in pg.event.get(pg.MOUSEBUTTONUP):
             if e.button == 1:
-                for ind, el in enumerate(self.right_rects):
-                    if el[0] <= e.pos[0] <= el[0] + el[2] and el[1] <= e.pos[1] <= el[1] + el[3]:
+                for (ind, el), color in zip(enumerate(self.right_rects), self.right_wires):
+                    if el[0] <= e.pos[0] <= el[0] + el[2] and el[1] <= e.pos[1] <= el[1] + el[3] and color == self.active_color:
                         self.drew_lines.append((self.active_color, self.start, ((el[0] * 2 + el[2]) // 2, (el[1] * 2 + el[3]) // 2)))
+                        self.drew_colors.append(color)
                         break
             self.to_draw_line = False
 
@@ -452,8 +453,34 @@ class ReceiveEnergy(pg.sprite.Sprite):
             self.callback()
 
 
-if __name__ == '__main__':
 
+class ElectrityTask:
+    bg_rotate1 = pg.image.load('images/energy1_bg.png')
+    bg_rotate2 = pg.image.load('images/energy2_bg.png')
+    bg_slider = pg.image.load('images/slider_bg.png')
+    slider_img = pg.image.load('images/slider.png')
+
+    def __init__(self, pos, size, screen):
+        self.screen = screen
+        self.pos, self.size = pos, size
+        self.type = random.choice([1, 2])  # 1=rotate  2=slider
+        if self.type == 1:
+            pg.transform.scale(self.bg_rotate1, self.size)
+            pg.transform.scale(self.bg_rotate2, self.size)
+        else:
+            pg.transform.scale(self.bg_slider, self.size)
+            pg.transform.scale(self.slider_img, self.size // self.slider_img.get_size())
+
+    def draw(self):
+        self.screen.blit(self.bg_rotate1 if self.type == 1 else self.bg_slider, self.pos)
+        if self.type == 2:
+            self.screen.blit(self.slider_img, (self.pos[0] + 280, self.pos[1] + 288))
+
+    def update(self):
+        ...
+
+
+if __name__ == '__main__':
     pg.init()
     FONT = pg.font.SysFont('Roboto', 50)
     pg.key.set_repeat(200, 70)

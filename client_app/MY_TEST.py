@@ -1,7 +1,9 @@
 import pygame as pg
+
+from client_app.protocol import Token
 from player import Player
 from widgets import Button, Text
-from Timer import Timer
+from timer import Timer
 
 
 class PlayerProfile(pg.sprite.Sprite):
@@ -94,7 +96,7 @@ class PlayerProfile(pg.sprite.Sprite):
 class VotingList(pg.sprite.Sprite):
     image = pg.image.load('images/tablet.png')
 
-    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, func=None):
+    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, send_func):
         super().__init__()
         # ____РАСПОЛОЖЕНИЕ ТАБЛЕТА С КНОПКАМИ____
         self.x = pos[0]
@@ -123,9 +125,9 @@ class VotingList(pg.sprite.Sprite):
                                handle_disabled=False)
         # ________
         self.choice = None  # выбор игрока
+        self.send_func = send_func
 
         self.timer = Timer((self.x + 670, self.y + 490), (100, 50), self.screen, 'black', 60)
-        self.func = func
         self.fill_profiles()
         # ____КОНЕЦ ЧАСТИ ПЛАНШЕТА____
 
@@ -138,8 +140,6 @@ class VotingList(pg.sprite.Sprite):
         self.screen.blit(self.chat_btn.image, self.chat_btn.rect)
         if self.timer.r >= 0:
             self.timer.draw()
-        else:
-            self.func()
 
     def fill_profiles(self):
         half1 = self.players[:len(self.players) - len(self.players) // 2]
@@ -165,8 +165,9 @@ class VotingList(pg.sprite.Sprite):
         if any([pl.selected for pl in self.profiles]):
             for player in self.profiles:
                 player.active = False
-                if player.selected:
-                    self.choice = player.name
+                if player.selected:  # игрок выбран
+                    self.choice = player.id
+                    self.send_func(Token('vote', choice=self.choice))
             self.skip_btn.set_disabled(True)
 
         self.skip_btn.update()

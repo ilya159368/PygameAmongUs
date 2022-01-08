@@ -37,7 +37,7 @@ anims = {
     ],
     "dead": load_amogus_image("Death/Dead0033.png", (100, 100))
 }
-idle = pygame.transform.smoothscale(pygame.image.load("images/amogus.png"), (100, 120))
+idle = pygame.transform.scale(pygame.image.load("images/amogus.png"), (100, 120))
 
 
 def lerp(x1, x2, perc):

@@ -77,6 +77,18 @@ class Server(socket.socket):
             if req.in_game:
                 if req.operation == 'move':
                     client.send2all(req)
+                elif req.operation == 'voting':
+                    client.send2all(req, include_self=True)
+                    client.room.start_voting()
+                elif req.operation == 'kill':
+                    client.send2all(req, include_self=True)
+                    client.room.check_win()
+                elif req.operation == 'task':
+                    client.room.tasks_progress += 1
+                    client.room.check_win()
+                elif req.operation == 'vote':
+                    client.room.players_votes[req.kwargs['choice']] += 1
+
             else:
                 # process menu
                 if req.operation == OperationsEnum.mouse_click:
@@ -124,7 +136,8 @@ class Server(socket.socket):
                     if len(room.players_list) == room.max_players:
                         room.available = False
                         client.send2all(Token('init', players=[
-                            c.color for c in client.room.players_list]), include_self=True)  # todo + send self
+                            (c.name, c.color, c.imposter) for c in client.room.players_list]), include_self=True)  # todo + send self
+                        client.room.init()
                 elif req.operation == 'delete':  # delete room if host disconnected
                     room: Room = client.room
                     client.send2all(Token('quit'))
@@ -138,6 +151,7 @@ class Server(socket.socket):
                 # ----------- тут начинается бд ---------------------------------------
                 elif req.operation == 'sign_in':
                     result = sign_in(self.db, req.kwargs['name'], req.kwargs['password'], self.cur)
+                    client.name = req.kwargs['name']
                     conn.send(pickle.dumps(Token('sign_in', status=result)))
 
                 elif req.operation == 'register':

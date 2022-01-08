@@ -5,13 +5,14 @@ from thread_ import CustomThread
 
 
 class Client:
-
     def __init__(self, conn):
         self.conn = conn
         self.queue = deque()
         self.room = None
         self.send_thread = CustomThread(target=self.send_data)
         self.send_thread.start()
+        # game attrs
+        self.imposter = False
 
     def send_data(self):
         while 1:
