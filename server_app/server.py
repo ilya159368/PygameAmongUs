@@ -87,7 +87,8 @@ class Server(socket.socket):
                     client.room.tasks_progress += 1
                     client.room.check_win()
                 elif req.operation == 'vote':
-                    client.room.players_votes[req.kwargs['choice']] += 1
+                    client.room.players_votes[req.kwargs['choice_']] += 1
+                    client.send2all(Token('make_voted', id_=client.id), include_self=True)
 
             else:
                 # process menu
@@ -164,9 +165,9 @@ class Server(socket.socket):
                     result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'], self.cur)
                     conn.send(pickle.dumps(Token('change_name', status=result)))
 
-            print(req)
-            print(self.rooms_list)
-            print(self.clients_list)
+            print(req.operation)
+            # print(self.rooms_list)
+            # print(self.clients_list)
 
     def run(self):
         self.listen_thread.start()

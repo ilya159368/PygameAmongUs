@@ -286,7 +286,7 @@ class App:
         # self.timer.draw()
 
     def update(self):
-        if self.active_object:
+        if self.active_object is not None:
             self.active_object.update()
         self.visible_group.update()
 
@@ -400,7 +400,7 @@ class App:
                             # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
 
             # move to server
-            if self.in_game and not self.offline:
+            if self.in_game and not self.offline and not self.active_object:
                 player: Player = self.player_list[self.id]
                 self.to_queue(
                     Token('move', id=self.id, origin=player.origin, velocity=player.velocity))
@@ -424,8 +424,10 @@ class App:
                                         resp.kwargs['dead'])].alive = False
                                 elif resp.operation == 'end_voting':
                                     self.close_voting()
-                        except:
-                            print('lost|empty queue')
+                                elif resp.operation == 'make_voted':
+                                    self.active_object.make_voted(resp.kwargs['id_'])
+                        except Exception as e:
+                            print('lost|empty queue', e)
                     print(len(self.queue_from))
                 else:
                     resp = self.from_queue()
@@ -586,6 +588,9 @@ class App:
                 'sign_in', name=self.signin_login.text, password=self.signin_password.text
             ))
 
+    def send_(self, id_):
+        self.to_queue(Token('vote', choice_=id_))
+
     def register(self):
         # проверка на пустые строки и разные пароли
         if self.register_password1.text == self.register_password1.text and self.register_password1 and \
@@ -676,8 +681,8 @@ class App:
             print('delete: empty token')
 
     def show_voting(self):
-        self.active_object = VotingList((500, 100), (853, 582), self.player_list, self.screen,
-                                        self.player_list[self.id].imposter, send_func=self.to_queue)
+        self.active_object = VotingList((self.width // 2 - self.width // 6, self.height // 2 - self.height // 6), (self.width // 3, self.height // 3), self.player_list, self.screen,
+                                        self.player_list[self.id].imposter, send_func=self.send_)
         [pl.set_meet_point() for pl in self.player_list]
         self.can_move = False
 

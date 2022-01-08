@@ -14,11 +14,11 @@ class Room:
         self.colors_list = random.sample(Config.colors, self.max_players)
         self.tasks_progress = 0
         self.imposter_count = 1
-        self.players_votes = [0] * len(self.players_list)
         self.skip_votes = 0
 
     def init(self):
         self.win_condition = len(self.players_list) * Config.task_per_player
+        self.players_votes = [0] * len(self.players_list)
         self.players_list[random.randrange(len(self.players_list))].imposter = True
 
     def check_win(self):
@@ -28,7 +28,7 @@ class Room:
             ...
 
     def start_voting(self):
-        threading.Timer(60, self.end_voting)
+        threading.Timer(60, self.end_voting).start()
 
     def end_voting(self):
         # most_voted_player: int = max(self.players_votes)  # количество
