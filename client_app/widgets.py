@@ -172,7 +172,7 @@ class Button(SurfaceSprite, InteractiveMixin):
                  group=None, scale_text=True, disabled=False, disabled_color=BASE_DISABLED_COLOR,
                  width=0, border_radius=False, hovered_color=BASE_HOVERED_COLOR,
                  paddings_factor: tuple = (1.2, 1.2), handle_hover=True, handle_disabled=True,
-                 image_scale_type=1):
+                 image_scale_type=-1):
         """size: if true - fit content | paddings: (horizontal, vertical)
         scale_type: 0-none, 1-max side, -1-min side, 2-non aspect ratio"""
 

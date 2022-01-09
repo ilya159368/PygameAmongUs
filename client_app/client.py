@@ -47,7 +47,7 @@ class Client(socket.socket):
     def recv_data(self):
         while 1:
             try:
-                data = self.recv(4096)
+                data = self.recv(8192)
             except socket.timeout as e:
                 err = e.args[0]
                 if err == 'timed out':

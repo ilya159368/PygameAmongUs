@@ -72,6 +72,7 @@ class Player:
         self.idle_animation = []
         self.frames = 0
         self.interact_range = 120
+        self.show = True
 
     def net_update(self, origin, velocity):
         self.last_origin = self.origin.copy()
@@ -135,4 +136,9 @@ class Player:
 
     def set_meet_point(self):
         self.origin = Vector2(4832 + math.cos(self.id * 36) * 300, 1080 + math.sin(self.id * 36) * 300)
+
+    def disable(self):
+        self.alive = False
+        self.can_move = False
+
 

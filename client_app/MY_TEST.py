@@ -10,7 +10,7 @@ class PlayerProfile(pg.sprite.Sprite):
     image = None
 
     def __init__(self, pos: tuple, size: tuple, color: str, name, screen, imp, alive, me,
-                 group: pg.sprite.Group = None):
+                 id):
         super().__init__()
         self.x = pos[0]
         self.y = pos[1]
@@ -45,6 +45,8 @@ class PlayerProfile(pg.sprite.Sprite):
 
         self.vote = pg.image.load('images/voted.png')
         self.rect = pg.Rect(self.x, self.y, self.w, self.h)
+
+        self.id = id
 
     def draw(self):
         if self.mouse_hover and self.alive and not self.selected and self.active:
@@ -96,7 +98,7 @@ class PlayerProfile(pg.sprite.Sprite):
 class VotingList(pg.sprite.Sprite):
     image = pg.image.load('images/tablet.png')
 
-    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, send_func):
+    def __init__(self, pos: tuple, size: tuple, players: list, screen, imp, send_func, alive):
         super().__init__()
         # ____РАСПОЛОЖЕНИЕ ТАБЛЕТА С КНОПКАМИ____
         self.x = pos[0]
@@ -129,6 +131,8 @@ class VotingList(pg.sprite.Sprite):
 
         self.timer = Timer((self.x + 670, self.y + 490), (100, 50), self.screen, 'black', 60)
         self.fill_profiles()
+        if not alive:
+            self.make_skip()
         # ____КОНЕЦ ЧАСТИ ПЛАНШЕТА____
 
     def draw(self):
@@ -152,29 +156,29 @@ class VotingList(pg.sprite.Sprite):
                     PlayerProfile(
                         (self.x + self.w // 9, self.y + self.h // 10 * (i + 2) + self.h // 15 * i),
                         (self.w // 3, self.h // 10), 'default', half1[i].name, self.screen, half1[i].imposter,
-                        half1[i].alive, self.imp))
+                        half1[i].alive, self.imp, half1[i].id))
 
             if i < len(half2):
                 self.profiles.append(
                     PlayerProfile(
                         (self.x + self.w // 2, self.y + self.h // 10 * (i + 2) + self.h // 15 * i),
                         (self.w // 3, self.h // 10), 'default', half2[i].name, self.screen, half2[i].imposter,
-                        half2[i].alive, self.imp))
+                        half2[i].alive, self.imp, half2[i].id))
 
     def update(self):
-        if any([pl.selected for pl in self.profiles]):
+        if any([pl.selected for pl in self.profiles]) and self.choice is None:
             for player in self.profiles:
                 player.active = False
                 if player.selected:  # игрок выбран
-                    self.choice = player.id
-                    self.send_func(Token('vote', choice=self.choice))
+                    self.choice = int(player.id)
+                    self.send_func(self.choice)
             self.skip_btn.set_disabled(True)
 
         self.skip_btn.update()
 
-    def make_voted(self, name):
+    def make_voted(self, id_):
         for pl in self.profiles:
-            if pl.name == name:
+            if pl.id == id_:
                 pl.voted = True
 
     def make_skip(self):
@@ -206,7 +210,7 @@ if __name__ == '__main__':
     players[1].name = 'dead'
     players[2].name = 'guy3'
 
-    tablet = VotingList((100, 100), (853, 582), players, screen, False)
+    tablet = VotingList((100, 100), (853, 582), players, screen, False, True)
     tablet.make_voted('guy3')
 
     while running:
