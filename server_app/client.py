@@ -34,3 +34,5 @@ class Client:
 
     def to_queue(self, resp):
         self.queue.append(resp)
+        if self.send_thread.is_paused():
+            self.send_thread.resume()

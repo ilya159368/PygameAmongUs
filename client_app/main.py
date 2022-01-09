@@ -11,7 +11,6 @@ import pygame as pg
 import threading
 from client import Client
 
-from auto_reg import *
 from timer import Timer
 
 from MY_TEST import VotingList
@@ -92,7 +91,7 @@ class App:
         self.active_object = None
         self.can_move = True
         self.in_vent = False
-        self.imposter_cooldown = 0
+
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
@@ -271,8 +270,8 @@ class App:
             if time.time() - self.last_update_time > 1 / 16 and self.can_move:
                 self.cl_move()
                 self.last_update_time = time.time()
-            if self.can_move:
-                self.player_list[self.id].frame_update()
+
+            self.player_list[self.id].frame_update()
             if not self.in_vent:
                 self.camera_pos = self.player_list[self.id].abs_origin
             self.draw_players()
@@ -293,15 +292,13 @@ class App:
 
     def draw_players(self):
         for player in self.player_list:
-            if not player.show:
-                continue
             if player != self.player_list[self.id]:
                 player.frame_update()
             w2s = self.world_to_screen(Vector2(player.abs_origin.x - 50, player.abs_origin.y - 100))
             if player == self.player_list[self.id] and self.in_vent:
-                continue
+                return
             self.screen.blit(player.get_image(), w2s.to_pg())
-            rfont = FONT_DEFAULT.render(player.name, False, WHITE if not player.imposter else (255, 0, 0))
+            rfont = FONT_DEFAULT.render(player.name, False, WHITE)
             self.screen.blit(rfont,
                              (w2s.x - rfont.get_width() / 2 + 50, w2s.y - 100))
 
@@ -371,7 +368,7 @@ class App:
                     self.exit_vent()
                 elif e.type == pg.KEYDOWN and e.key == pg.K_q:
                     local_player = self.player_list[self.id]
-                    if not local_player.imposter or time.time() - self.imposter_cooldown < 30.0:
+                    if not local_player.imposter:
                         continue
                     nearest_player = 0
                     nearest_dist = 1000
@@ -379,7 +376,7 @@ class App:
                         if i == self.id:
                             continue
                         player = self.player_list[i]
-                        if not player.alive:
+                        if not player.alive or player.imposter:
                             continue
                         dist = (player.origin - local_player.origin).length()
                         if dist < nearest_dist:
@@ -388,9 +385,7 @@ class App:
                     if nearest_dist < local_player.interact_range:
                         # self.player_list[nearest_player].alive = False
                         self.to_queue(Token('kill', dead=self.player_list[nearest_player].name))
-                        self.imposter_cooldown = time.time()
                         # тут килляем игрока на сервере с айди nearest_player
-
                 elif e.type == pg.KEYDOWN and e.key == pg.K_f:
                     local_player = self.player_list[self.id]
                     for i in range(len(self.player_list)):
@@ -405,7 +400,7 @@ class App:
                             # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
 
             # move to server
-            if self.in_game and not self.offline and not self.active_object and self.player_list[self.id].alive:
+            if self.in_game and not self.offline and not self.active_object:
                 player: Player = self.player_list[self.id]
                 self.to_queue(
                     Token('move', id=self.id, origin=player.origin, velocity=player.velocity))
@@ -426,13 +421,9 @@ class App:
                                     self.show_voting()
                                 elif resp.operation == 'kill':
                                     self.player_list[[pl.name for pl in self.player_list].index(
-                                        resp.kwargs['dead'])].disable()
+                                        resp.kwargs['dead'])].alive = False
                                 elif resp.operation == 'end_voting':
                                     self.close_voting()
-                                    for pl in self.player_list:
-                                        if not pl.alive:
-                                            pl.show = False
-                                            pl.can_move = True
                                 elif resp.operation == 'make_voted':
                                     self.active_object.make_voted(resp.kwargs['id_'])
                         except Exception as e:
@@ -508,12 +499,8 @@ class App:
                     elif resp.operation == 'sign_in':
                         if resp.kwargs['status'] == 'ok':
                             self.signed_in = True
-                            if self.visible_group is self.menu_group:
-                                self.show_find()
-                            else:
-                                self.show_menu()
+                            self.show_menu()
                         else:
-                            self.visible_group = self.signin_group
                             self.signin_status_label.set_text(resp.kwargs['status'])
             self.draw()  # TODO fix cpu usage
             try:
@@ -538,8 +525,6 @@ class App:
                        self.height / 2 + (world.y - self.camera_pos.y))
 
     def cl_move(self):
-        if not self.can_move:
-            return
         local_player_id = self.id
         local_player = self.player_list[local_player_id]
         keys = pg.key.get_pressed()
@@ -602,7 +587,6 @@ class App:
             self.to_queue(Token(
                 'sign_in', name=self.signin_login.text, password=self.signin_password.text
             ))
-            save_account(self.signin_login.text, self.signin_password.text)
 
     def send_(self, id_):
         self.to_queue(Token('vote', choice_=id_))
@@ -640,12 +624,9 @@ class App:
     def show_find(self):
         self.find()
         self.show_find_status = False
-        acc = load_account()
+
         if self.signed_in:
             self.visible_group = self.find_group
-        elif acc[0]:
-            self.to_queue(Token(
-                'sign_in', name=acc[1], password=acc[2]))
         else:
             self.show_signin()
 
@@ -700,11 +681,9 @@ class App:
             print('delete: empty token')
 
     def show_voting(self):
-        self.active_object = VotingList((self.width // 2 - self.width // 6, self.height // 2 - self.height // 6), (854, 577), self.player_list, self.screen,
-                                        self.player_list[self.id].imposter, self.send_,
-                                        self.player_list[self.id].alive)
-        self.active_object.alive = self.player_list[self.id].alive
-        [pl.set_meet_point() for pl in self.player_list if pl.alive]
+        self.active_object = VotingList((self.width // 2 - self.width // 6, self.height // 2 - self.height // 6), (self.width // 3, self.height // 3), self.player_list, self.screen,
+                                        self.player_list[self.id].imposter, send_func=self.send_)
+        [pl.set_meet_point() for pl in self.player_list]
         self.can_move = False
 
     def close_task(self):
