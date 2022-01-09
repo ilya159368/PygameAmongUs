@@ -97,28 +97,31 @@ class Player:
 
     def load_anims(self):
         color = self.color
+        temp_idle = idle.copy()
         for x in range(100):
             for y in range(120):
-                pixel = idle.get_at((x, y))
+                pixel = temp_idle.get_at((x, y))
                 if pixel == (255, 0, 0):
-                    idle.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+                    temp_idle.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
         self.idle_animation = [
-            pygame.transform.flip(idle, True, False),
-            idle
+            pygame.transform.flip(temp_idle, True, False),
+            temp_idle.copy()
         ]
         for anim in anims["walk"]:
+            temp_anim = anim.copy()
             for x in range(100):
                 for y in range(120):
                     pixel = anim.get_at((x, y))
                     if pixel == (255, 0, 0):
-                        anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
-            self.walk_animation_left.append(pygame.transform.flip(anim, True, False))
-            self.walk_animation_right.append(anim)
+                        temp_anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+            self.walk_animation_left.append(pygame.transform.flip(temp_anim, True, False))
+            self.walk_animation_right.append(temp_anim)
+        temp_anim = anims["dead"].copy()
         for x in range(100):
             for y in range(100):
-                pixel = anims["dead"].get_at((x, y))
+                pixel = temp_anim.get_at((x, y))
                 if pixel == (255, 0, 0):
-                    anims["dead"].set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+                    temp_anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
 
     def get_image(self):
         if not self.alive:
@@ -139,6 +142,5 @@ class Player:
 
     def disable(self):
         self.alive = False
-        self.can_move = False
 
 
