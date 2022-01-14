@@ -12,7 +12,7 @@ import threading
 from client import Client
 
 from auto_reg import *
-from timer import Timer
+from timer import Timer, ProgressBar
 
 from MY_TEST import VotingList
 
@@ -67,6 +67,7 @@ class App:
         self.running = True
         self.signed_in = False
         self.in_game = False
+        self.name = ""
         self.offline = False
         self.connecting = True
         self.token = None
@@ -96,6 +97,7 @@ class App:
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
+        self.task_bar = None
         # images
         self.bg_img = pg.image.load('images/bg.png')
         self.back_img = pg.image.load('images/back.png')
@@ -205,7 +207,7 @@ class App:
                                            )
         # account
         self.account_username = Label((w // 2 - w // 4, h // 2.7), (w // 2, h // 7),
-                                      Text('Username: "..."', full_font=FONT_DEFAULT), ALPHA, WHITE,
+                                      Text(f'Username: "{self.name}"', full_font=FONT_DEFAULT), ALPHA, WHITE,
                                       width=5, border_radius=True, group=self.account_group)
         self.account_btn_signout = Button((w // 8 * 0.75, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
                                           Text('sign out', full_font=FONT_DEFAULT),
@@ -288,7 +290,8 @@ class App:
             self.active_object.draw()
         if self.in_vent:
             self.screen.fill((0, 0, 0, 125))
-
+        if self.in_game and self.task_bar is not None:
+            self.task_bar.draw()
         # self.timer.draw()
 
     def update(self):
@@ -313,7 +316,7 @@ class App:
 
     def run(self):
         while self.running:
-            self.update()
+            self.update( )
             # events / send ---------
             e: pg.event.Event
             for e in pg.event.get():
@@ -431,6 +434,7 @@ class App:
                                         resp.kwargs['velocity'])
                                 elif resp.operation == 'voting':
                                     self.show_voting()
+                                    self.task_bar.completed = resp.kwargs['task_complete']
                                 elif resp.operation == 'kill':
                                     self.player_list[[pl.name for pl in self.player_list].index(
                                         resp.kwargs['dead'])].disable()
@@ -473,6 +477,8 @@ class App:
                         print(rooms)
                     elif resp.operation == 'init':
                         temp_list = []
+                        self.task_bar = ProgressBar((10, 10), (self.width // 3, 50), self.screen,
+                                                    len(resp.kwargs['players']) * 7)
                         for i, (name, color, imposter) in enumerate(resp.kwargs['players']):
                             pl = Player()
                             pl.color = color
@@ -518,6 +524,8 @@ class App:
                     elif resp.operation == 'sign_in':
                         if resp.kwargs['status'] == 'ok':
                             self.signed_in = True
+                            self.name = resp.kwargs['my_name']
+                            self.account_username.set_text(resp.kwargs['my_name'])
                             if self.visible_group is self.menu_group:
                                 self.show_find()
                             else:
@@ -721,10 +729,11 @@ class App:
             self.camera_pos = Vector2(4832 + math.cos(pl.id * 36) * 300, 1080 + math.sin(pl.id * 36) * 300)
         self.can_move = False   # TODO fix bcz update after disable
 
-    def close_task(self):
+    def close_task(self, done=0):
         self.active_object = None
         self.can_move = True
-        self.to_queue(Token('task'))
+        if done:
+            self.to_queue(Token('task'))
 
     def close_voting(self):
         self.active_object = None

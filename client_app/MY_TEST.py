@@ -1,6 +1,6 @@
 import pygame as pg
 
-from client_app.protocol import Token
+from protocol import Token
 from player import Player
 from widgets import Button, Text
 from timer import Timer

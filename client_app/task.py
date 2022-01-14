@@ -251,7 +251,7 @@ class NumbersTask:
             self.done_time = time.time()
 
         if time.time() - self.done_time > 1.0 and self.done:
-            self.callback()
+            self.callback(done=1)
 
 
 class WiresTask:
@@ -361,7 +361,7 @@ class GarbageTask:
             self.handle_pos = self.handle_pos - self.handle_pos * 0.07
 
         if time.time() - self.done_time > 1.0 and self.done:
-            self.callback()
+            self.callback(done=1)
 
 
 class Slider(pg.sprite.Sprite):
@@ -403,7 +403,7 @@ class Slider(pg.sprite.Sprite):
                     self.done_time = time.time()
 
         if self.done and time.time() - self.done_time > 1:
-            self.callback()
+            self.callback(done=1)
 
 
 class SendEnergy(pg.sprite.Sprite):
@@ -450,7 +450,7 @@ class ReceiveEnergy(pg.sprite.Sprite):
                     self.done_time = time.time()
 
         if self.done and time.time() - self.done_time > 1:
-            self.callback()
+            self.callback(done=1)
 
 
 
