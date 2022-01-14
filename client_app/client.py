@@ -1,3 +1,4 @@
+import pickle
 import socket
 import datetime
 import threading
@@ -35,7 +36,7 @@ class Client(socket.socket):
             if self.queue_to:
                 data = self.queue_to.popleft()
                 try:
-                    self.send(data)
+                    self.sendall(data)
                     # print('send')
                 except socket.error:
                     self.close()
@@ -47,12 +48,20 @@ class Client(socket.socket):
     def recv_data(self):
         while 1:
             try:
-                data = self.recv(8192)
+                data = b''
+                while True:
+                    part = self.recv(1024)
+                    data += part
+                    if len(part) < 1024:
+                        # either 0 or end of data
+                        break
+                print('_____________recv___________')
+                a = pickle.loads(data)
+                if a.operation != 'move':
+                    print(a.operation)
             except socket.timeout as e:
                 err = e.args[0]
-                if err == 'timed out':
-                    continue
-                else:
+                if err != 'timed out':
                     sys.exit(1)
             except socket.error:
                 self.close()

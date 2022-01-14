@@ -1,5 +1,7 @@
 import math
 import pickle
+import time
+
 from task import *
 
 from protocol import *
@@ -29,6 +31,7 @@ class App:
             return
         req.in_game = self.in_game
         r = pickle.dumps(req)
+        print(len(r), 'send')
         self.queue_to.append(r)
         if self.send_thread.is_paused():
             self.send_thread.resume()
@@ -36,7 +39,9 @@ class App:
     def from_queue(self):
         if self.offline:
             return
-        return pickle.loads(self.queue_from.popleft())
+        a: bytes = self.queue_from.popleft()
+        print(len(a), 'recv')
+        return pickle.loads(a)
 
     # end service funcs --------------
 
@@ -93,7 +98,6 @@ class App:
         self.active_object = None
         self.can_move = True
         self.in_vent = False
-        self.imposter_cooldown = 0
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
@@ -117,6 +121,7 @@ class App:
         self.amogus_left = pygame.transform.smoothscale(self.amogus_left, self.player_size)
         self.amogus_right = pygame.transform.smoothscale(self.amogus_right, self.player_size)
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
+        self.bg_ejected = pg.image.load('images/ejected.png')
 
         self.collision_map = render.CollisionMap(pg.image.load("images/among_walls.png"))
         # groups
@@ -264,6 +269,7 @@ class App:
 
     def resize_event(self):
         self.bg_img = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
+        self.bg_ejected = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
 
     def draw(self):
         if self.in_game:
@@ -285,7 +291,8 @@ class App:
                                  (self.width - text.get_width(), self.height - text.get_height()))
         else:
             self.screen.blit(self.bg_img, (0, 0))
-        self.visible_group.draw(self.screen)
+            # self.screen.fill((255, 0, 0))
+        [self.screen.blit(s.image, s.rect, special_flags=pg.BLEND_RGBA_ADD) for s in self.visible_group.sprites()]
         if self.active_object:
             self.active_object.draw()
         if self.in_vent:
@@ -342,7 +349,7 @@ class App:
                         for center in tup:
                             if (Vector2(*center) - pl_center).length() <= player.interact_range or \
                                     ((Vector2(
-                                        *center) - pl_center).length() <= 300 and cls is VotingList):  # для
+                                        *center) - pl_center).length() <= 400 and cls is VotingList):  # для
                                 # радиуса стола
                                 if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
@@ -380,7 +387,7 @@ class App:
                     self.exit_vent()
                 elif e.type == pg.KEYDOWN and e.key == pg.K_q:
                     local_player = self.player_list[self.id]
-                    if not local_player.imposter or time.time() - self.imposter_cooldown < 30.0:
+                    if not local_player.imposter or time.time() - self.imposter_cooldown < 30.0 or not local_player.alive:
                         continue
                     nearest_player = 0
                     nearest_dist = 1000
@@ -423,16 +430,22 @@ class App:
             # drawing / recv ---------
             if self.queue_from:
                 if self.in_game:
-                    print(len(self.queue_from))
+                    # print(len(self.queue_from))
+                    # for i in self.queue_from:
+                    #     if i.operation == 'voting':
+                    #         print('______________voting in queue________________')
                     for _ in range(len(self.queue_from)):
                         try:
                             if len(self.queue_from):
                                 resp = self.from_queue()
+                                if resp.operation != 'move':
+                                    print(resp.operation)
                                 if resp.operation == 'move':
                                     self.player_list[resp.kwargs['id']].net_update(
                                         resp.kwargs['origin'],
                                         resp.kwargs['velocity'])
                                 elif resp.operation == 'voting':
+                                    print('___________________voting________________')
                                     self.show_voting()
                                     self.task_bar.completed = resp.kwargs['task_complete']
                                 elif resp.operation == 'kill':
@@ -442,6 +455,8 @@ class App:
                                             resp.kwargs['dead']) == self.id:
                                         self.can_move = False
                                 elif resp.operation == 'end_voting':
+                                    id_ = resp.kwargs['voted']
+                                    self.show_ejected(id_)
                                     self.close_voting()
                                     for pl in self.player_list:
                                         if not pl.alive:
@@ -451,7 +466,7 @@ class App:
                                     self.active_object.make_voted(resp.kwargs['id_'])
                         except Exception as e:
                             print('lost|empty queue', e)
-                    print(len(self.queue_from))
+                    # print(len(self.queue_from))
                 else:
                     resp = self.from_queue()
                     if resp.operation == 'find':
@@ -483,7 +498,7 @@ class App:
                             pl = Player()
                             pl.color = color
                             pl.name = name
-                            pl.imposter = imposter
+                            pl.imposter = True
                             pl.id = i
                             pl.load_anims()
                             pl.set_meet_point()
@@ -590,10 +605,8 @@ class App:
 
     def show_game(self):
         self.in_game = True
-        if self.signed_in:
-            self.visible_group = self.ui_group
-        else:
-            self.show_signin()
+        self.visible_group = self.ui_group
+        self.imposter_cooldown = time.time()
 
     def show_menu(self):
         self.visible_group = self.menu_group
@@ -738,6 +751,18 @@ class App:
     def close_voting(self):
         self.active_object = None
         self.can_move = True
+
+    def show_ejected(self, id):
+        self.screen.blit(self.bg_ejected, (0, 0))
+        if id is None:
+            text = 'No one was ejected...'
+        else:
+            text = f'{self.player_list[id].name.capitalize()} was ejected...'
+        label = Label((0, self.height // 2 - self.height // 10), (self.width, self.height // 5),
+                      Text(text, full_font=FONT_BOLD), ALPHA)
+        self.screen.blit(label.image, label.rect)
+        pg.display.flip()
+        time.sleep(10)
 
 
 def main():

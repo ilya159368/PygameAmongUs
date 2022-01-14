@@ -119,7 +119,7 @@ class Text:
 
 
 class Label(SurfaceSprite):
-    def __init__(self, pos: tuple, size: tuple, text: Text, color, border_color=None, width=0,
+    def __init__(self, pos: tuple, size: tuple, text: Text, color, border_color=None, width=1,
                  border_radius: bool or int = False, group=None):
         super().__init__(pos, size, color, border_color=border_color,
                          width=width, border_radius=border_radius,

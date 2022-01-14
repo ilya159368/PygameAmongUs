@@ -453,33 +453,6 @@ class ReceiveEnergy(pg.sprite.Sprite):
             self.callback(done=1)
 
 
-
-class ElectrityTask:
-    bg_rotate1 = pg.image.load('images/energy1_bg.png')
-    bg_rotate2 = pg.image.load('images/energy2_bg.png')
-    bg_slider = pg.image.load('images/slider_bg.png')
-    slider_img = pg.image.load('images/slider.png')
-
-    def __init__(self, pos, size, screen):
-        self.screen = screen
-        self.pos, self.size = pos, size
-        self.type = random.choice([1, 2])  # 1=rotate  2=slider
-        if self.type == 1:
-            pg.transform.scale(self.bg_rotate1, self.size)
-            pg.transform.scale(self.bg_rotate2, self.size)
-        else:
-            pg.transform.scale(self.bg_slider, self.size)
-            pg.transform.scale(self.slider_img, self.size // self.slider_img.get_size())
-
-    def draw(self):
-        self.screen.blit(self.bg_rotate1 if self.type == 1 else self.bg_slider, self.pos)
-        if self.type == 2:
-            self.screen.blit(self.slider_img, (self.pos[0] + 280, self.pos[1] + 288))
-
-    def update(self):
-        ...
-
-
 if __name__ == '__main__':
     pg.init()
     FONT = pg.font.SysFont('Roboto', 50)

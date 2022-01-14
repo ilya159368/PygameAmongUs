@@ -8,11 +8,13 @@ class Client:
     def __init__(self, conn):
         self.conn = conn
         self.queue = deque()
+        self.queue_from = deque()
         self.room = None
         self.send_thread = CustomThread(target=self.send_data)
         self.send_thread.start()
         # game attrs
         self.imposter = False
+        self.name = 'undefined'
 
     def send_data(self):
         while 1:
@@ -24,6 +26,7 @@ class Client:
 
     def send2all(self, resp, include_self=False):
         for client_el in self.room.players_list:
+            print(f'{self.name}->{client_el.name}')
             if include_self:
                 client_el.queue.append(resp)
                 client_el.send_thread.resume()

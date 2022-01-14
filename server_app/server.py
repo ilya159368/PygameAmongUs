@@ -10,6 +10,8 @@ from protocol import *
 from thread_ import CustomThread
 from client import Client
 from db_funcs import *
+
+
 # from render import Vector2  # dont del
 
 
@@ -55,7 +57,13 @@ class Server(socket.socket):
         client = sorted(self.clients_list, key=lambda x: x.conn is conn, reverse=True)[0]
         while 1:
             try:
-                data = conn.recv(4096)
+                data = b''
+                while True:
+                    rec = conn.recv(1024)
+                    data += rec
+                    if len(rec) < 1024:
+                        break
+                print(len(data), client.name)
             except socket.error:
                 conn.close()
                 if client.room:
@@ -73,11 +81,24 @@ class Server(socket.socket):
                 return
 
             req = pickle.loads(data)
+
+            if req.operation == 'delete':  # delete room if host disconnected
+                room: Room = client.room
+                client.send2all(Token('quit'))
+                for c in room.players_list:
+                    c.room = None
+                self.rooms_list.remove(room)
+            elif req.operation == 'quit':  # player quit room
+                client.room.delete_client(client)
+                client.send2all(Token('connected', cnt=len(client.room.players_list)))
+                client.room = None
+
             # process game
             if req.in_game:
                 if req.operation == 'move':
                     client.send2all(req)
                 elif req.operation == 'voting':
+                    req.kwargs['task_complete'] = client.room.tasks_progress
                     client.send2all(req, include_self=True)
                     client.room.start_voting()
                 elif req.operation == 'kill':
@@ -87,7 +108,11 @@ class Server(socket.socket):
                     client.room.tasks_progress += 1
                     client.room.check_win()
                 elif req.operation == 'vote':
-                    client.room.players_votes[req.kwargs['choice_']] += 1
+                    choice_ = req.kwargs['choice_']
+                    if choice_ is not None:
+                        client.room.players_votes[choice_] += 1
+                    else:
+                        client.room.skip_votes += 1
                     client.send2all(Token('make_voted', id_=client.id), include_self=True)
 
             else:
@@ -113,7 +138,8 @@ class Server(socket.socket):
                     for room in sorted(self.rooms_list, key=lambda x: len(x.players_list),
                                        reverse=True)[:5]:
                         if room.available:
-                            rooms.append((room.name, len(room.players_list), room.max_players, room.token))
+                            rooms.append(
+                                (room.name, len(room.players_list), room.max_players, room.token))
                     out = Token('find', rooms=rooms)
                     conn.send(pickle.dumps(out))
                 elif req.operation == 'join':
@@ -130,42 +156,38 @@ class Server(socket.socket):
                     room.new_player_id += 1
                     room.players_list.append(client)
                     client.color = room.colors_list[client.id]
-                    client.send2all(Token('connected', cnt=len(room.players_list), max_=room.max_players))
-                    out = Token('join', id=client.id, status='ok', token=room.token, cnt=len(room.players_list),
+                    client.send2all(
+                        Token('connected', cnt=len(room.players_list), max_=room.max_players))
+                    out = Token('join', id=client.id, status='ok', token=room.token,
+                                cnt=len(room.players_list),
                                 max_=room.max_players)  # TODO .+^ check if client quit
                     conn.send(pickle.dumps(out))
                     if len(room.players_list) == room.max_players:
                         room.available = False
-                        client.send2all(Token('init', players=[
-                            (c.name, c.color, c.imposter) for c in client.room.players_list]), include_self=True)  # todo + send self
                         client.room.init()
-                elif req.operation == 'delete':  # delete room if host disconnected
-                    room: Room = client.room
-                    client.send2all(Token('quit'))
-                    for c in room.players_list:
-                        c.room = None
-                    self.rooms_list.remove(room)
-                elif req.operation == 'quit':  # player quit room
-                    client.room.delete_client(client)
-                    client.send2all(Token('connected', cnt=len(client.room.players_list)))
-                    client.room = None
+                        client.send2all(Token('init', players=[
+                            (c.name, c.color, c.imposter) for c in client.room.players_list]),
+                                        include_self=True)
                 # ----------- тут начинается бд ---------------------------------------
                 elif req.operation == 'sign_in':
                     result = sign_in(self.db, req.kwargs['name'], req.kwargs['password'], self.cur)
                     client.name = req.kwargs['name']
-                    conn.send(pickle.dumps(Token('sign_in', status=result)))
+                    conn.send(
+                        pickle.dumps(Token('sign_in', status=result, my_name=req.kwargs['name'])))
 
                 elif req.operation == 'register':
-                    result = register(self.db, req.kwargs['name'], req.kwargs['password'], req.kwargs['email'],
+                    result = register(self.db, req.kwargs['name'], req.kwargs['password'],
+                                      req.kwargs['email'],
                                       self.cur)
 
                     conn.send(pickle.dumps(Token('register', status=result)))
 
                 elif req.operation == 'change_name':
-                    result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'], self.cur)
+                    result = change_name(self.db, req.kwargs['old_name'], req.kwargs['new_name'],
+                                         self.cur)
                     conn.send(pickle.dumps(Token('change_name', status=result)))
-
-            print(req.operation)
+            if req.operation != 'move':
+                print(req.operation)
             # print(self.rooms_list)
             # print(self.clients_list)
 

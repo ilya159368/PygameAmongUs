@@ -35,9 +35,11 @@ anims = {
         load_amogus_image("Walk/walk11.png"),
         load_amogus_image("Walk/walk12.png")
     ],
-    "dead": load_amogus_image("Death/Dead0033.png", (100, 100))
+    "dead": load_amogus_image("Death/Dead.png", (100, 100))
 }
 idle = pygame.transform.scale(pygame.image.load("images/amogus.png"), (100, 120))
+temp_voting_img = pygame.image.load("images/voting_amogus.png")
+voting_img = pygame.transform.scale(temp_voting_img, temp_voting_img.get_size())
 
 
 def lerp(x1, x2, perc):
@@ -116,16 +118,22 @@ class Player:
                         temp_anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
             self.walk_animation_left.append(pygame.transform.flip(temp_anim, True, False))
             self.walk_animation_right.append(temp_anim)
-        temp_anim = anims["dead"].copy()
-        for x in range(100):
-            for y in range(100):
-                pixel = temp_anim.get_at((x, y))
+        self.death_anim = anims["dead"].copy()
+        for x in range(self.death_anim.get_width()):
+            for y in range(self.death_anim.get_height()):
+                pixel = self.death_anim.get_at((x, y))
                 if pixel == (255, 0, 0):
-                    temp_anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+                    self.death_anim.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
+        self.voting_img = voting_img.copy()
+        for x in range(self.voting_img.get_width()):
+            for y in range(self.voting_img.get_height()):
+                pixel = self.voting_img.get_at((x, y))
+                if pixel == (255, 0, 0):
+                    self.voting_img.set_at((x, y), (clamp(color[0] - 50, 0, 255), clamp(color[1] - 50, 0, 255), clamp(color[2] - 50, 0, 255), 255))
 
     def get_image(self):
         if not self.alive:
-            return anims["dead"]
+            return self.death_anim
         if self.side:
             if self.velocity.length_sqr() > 0:
                 return self.walk_animation_right[self.frames % 10]

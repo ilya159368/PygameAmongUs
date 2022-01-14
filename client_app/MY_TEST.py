@@ -9,8 +9,7 @@ from timer import Timer
 class PlayerProfile(pg.sprite.Sprite):
     image = None
 
-    def __init__(self, pos: tuple, size: tuple, color: str, name, screen, imp, alive, me,
-                 id):
+    def __init__(self, pos: tuple, size: tuple, player, screen, imp):
         super().__init__()
         self.x = pos[0]
         self.y = pos[1]
@@ -19,23 +18,25 @@ class PlayerProfile(pg.sprite.Sprite):
         self.w = size[0]
         self.h = size[1]
 
-        self.color = color
-        self.name = name
+        self.color = player.color
+        self.id = player.id
+        self.name = player.name
         self.imp = imp
-        self.alive = alive
-        self.image = pg.image.load(f'images/voting_colors/{self.color}.png')
+        self.alive = player.alive
+        self.image = pg.transform.smoothscale(player.voting_img, player.voting_img.get_size())
+        self.me_imp = player.imposter
 
         self.mouse_hover = False
         self.selected = False
         self.voted = False
-        if alive:
+        if self.alive:
             self.active = True
         else:
             self.active = False
 
         self.font = pg.font.Font(None, int(self.h // 1.5))
 
-        if imp and me:
+        if imp and self.me_imp:
             self.font_render = self.font.render(self.name, 1, 'red')
         else:
             self.font_render = self.font.render(self.name, 1, (15, 15, 38))
@@ -45,8 +46,6 @@ class PlayerProfile(pg.sprite.Sprite):
 
         self.vote = pg.image.load('images/voted.png')
         self.rect = pg.Rect(self.x, self.y, self.w, self.h)
-
-        self.id = id
 
     def draw(self):
         if self.mouse_hover and self.alive and not self.selected and self.active:
@@ -107,6 +106,7 @@ class VotingList(pg.sprite.Sprite):
         self.w = size[0]
         self.h = size[1]
         self.screen = screen
+        self.alive = alive
         # ____РАСПРЕДЕЛЕНИЕ ИГРОКОВ____
         self.players = players
         self.profiles = []
@@ -121,17 +121,17 @@ class VotingList(pg.sprite.Sprite):
                                img, paddings_factor=(1, 1), image_scale_type=0, hovered_color=(210, 210, 210),
                                func=self.make_skip, handle_disabled=False)
         # ____кнопка чата____
-        img1 = pg.image.load('images/chat_button.png')
-        self.chat_btn = Button((self.x + self.w - 150, self.y + 50), (True, True), pg.SRCALPHA,
-                               img1, paddings_factor=(1, 1), image_scale_type=0, hovered_color=(210, 210, 210),
-                               handle_disabled=False)
+        # img1 = pg.image.load('images/chat_button.png')
+        # self.chat_btn = Button((self.x + self.w - 150, self.y + 50), (True, True), pg.SRCALPHA,
+        #                        img1, paddings_factor=(1, 1), image_scale_type=0, hovered_color=(210, 210, 210),
+        #                        handle_disabled=False)
         # ________
         self.choice = None  # выбор игрока
         self.send_func = send_func
 
         self.timer = Timer((self.x + 670, self.y + 490), (100, 50), self.screen, 'black', 60)
         self.fill_profiles()
-        if not alive:
+        if not self.alive:
             self.make_skip()
         # ____КОНЕЦ ЧАСТИ ПЛАНШЕТА____
 
@@ -141,7 +141,7 @@ class VotingList(pg.sprite.Sprite):
             profile.update()
             profile.draw()
         self.screen.blit(self.skip_btn.image, self.skip_btn.rect)
-        self.screen.blit(self.chat_btn.image, self.chat_btn.rect)
+        # self.screen.blit(self.chat_btn.image, self.chat_btn.rect)
         if self.timer.r >= 0:
             self.timer.draw()
 
@@ -155,15 +155,13 @@ class VotingList(pg.sprite.Sprite):
                 self.profiles.append(
                     PlayerProfile(
                         (self.x + self.w // 9, self.y + self.h // 10 * (i + 2) + self.h // 15 * i),
-                        (self.w // 3, self.h // 10), 'default', half1[i].name, self.screen, half1[i].imposter,
-                        half1[i].alive, self.imp, half1[i].id))
+                        (self.w // 3, self.h // 10), half1[i], self.screen, self.imp))
 
             if i < len(half2):
                 self.profiles.append(
                     PlayerProfile(
                         (self.x + self.w // 2, self.y + self.h // 10 * (i + 2) + self.h // 15 * i),
-                        (self.w // 3, self.h // 10), 'default', half2[i].name, self.screen, half2[i].imposter,
-                        half2[i].alive, self.imp, half2[i].id))
+                        (self.w // 3, self.h // 10), half2[i], self.screen, self.imp))
 
     def update(self):
         if any([pl.selected for pl in self.profiles]) and self.choice is None:
@@ -186,6 +184,8 @@ class VotingList(pg.sprite.Sprite):
         for player in self.profiles:
             player.active = False
         self.skip_btn.set_disabled(True)
+        if self.alive:
+            self.send_func(None)
 
 
 if __name__ == '__main__':
