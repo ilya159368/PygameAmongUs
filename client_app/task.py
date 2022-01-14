@@ -174,13 +174,15 @@ from widgets import ListWidget
 
 
 class NumbersTask:
-    def __init__(self, x, y, size, screen, font, callback):
+    type = "NumbersTask"
+    def __init__(self, x, y, size, screen, font, world_pos, callback):
         self.x = x
         self.y = y
         self.size = size
         self.w = w = size * 5
         self.h = h = size * 2
         self.callback = callback
+        self.world_pos = world_pos
 
         self.center = ((x * 2 + w) // 2, (y * 2 + h) // 2)
 
@@ -256,8 +258,9 @@ class NumbersTask:
 
 class WiresTask:
     bg = pg.image.load('images/wires.png')
+    type = "WiresTask"
 
-    def __init__(self, pos, size, screen, callback):
+    def __init__(self, pos, size, screen, world_pos, callback):
         self.size = size
         self.pos = pos
         self.center = ((self.pos[0] * 2 + self.size[0]) // 2, (self.pos[1] * 2 + self.size[1]) // 2)
@@ -268,6 +271,8 @@ class WiresTask:
         random.shuffle(self.right_wires)
         self.bg = pg.transform.smoothscale(self.bg, self.size)
         self.callback = callback
+        self.world_pos = world_pos
+        self.done = False
 
         x, y = self.pos
         w, h = self.size
@@ -314,8 +319,9 @@ class GarbageTask:
     bg = pg.transform.smoothscale(pg.image.load("images/garbage_bg.png"), (818, 822))
     handle = pg.transform.smoothscale(pg.image.load("images/garbage_handle.png"), (200, 62))
     clear = pg.transform.smoothscale(pg.image.load("images/garbage_clear.png"), (818, 822))
+    type = "GarbageTask"
 
-    def __init__(self, pos, size, scr, callback):
+    def __init__(self, pos, size, scr, world_pos, callback):
         self.screen = scr
         self.size = size
         self.pos = pos
@@ -325,6 +331,7 @@ class GarbageTask:
         self.moving_handle = False
         self.done_time = 0
         self.callback = callback
+        self.world_pos = world_pos
 
     def draw(self):
         if self.done:
@@ -367,7 +374,7 @@ class GarbageTask:
 class Slider(pg.sprite.Sprite):
     image = pg.image.load('images/slider.png')
 
-    def __init__(self, pos: tuple, size: tuple, screen, board_size: tuple, callback):
+    def __init__(self, pos: tuple, size: tuple, screen, board_size: tuple, world_pos, callback):
         super().__init__()
         self.x, self.y = pos
         self.w, self.h = size
@@ -377,6 +384,7 @@ class Slider(pg.sprite.Sprite):
         self.callback = callback
         self.done = False
         self.done_time = 0
+        self.world_pos = world_pos
 
         self.board_x, self.board_y = board_size
 
@@ -408,9 +416,11 @@ class Slider(pg.sprite.Sprite):
 
 class SendEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/send_energy.png')
+    type = "SendEnergy"
 
-    def __init__(self, pos: tuple, size: tuple, screen, callback, special=None):
+    def __init__(self, pos: tuple, size: tuple, screen, world_pos, callback, special=None):
         super().__init__()
+        self.world_pos = world_pos
         self.x, self.y = pos
         self.w, self.h = size
         self.screen = screen
@@ -428,9 +438,11 @@ class SendEnergy(pg.sprite.Sprite):
 
 class ReceiveEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/start.png')
+    type = "ReceiveEnergy"
 
-    def __init__(self, pos: tuple, size: tuple, screen, callback):
+    def __init__(self, pos: tuple, size: tuple, screen, world_pos, callback):
         super().__init__()
+        self.world_pos = world_pos
         self.x, self.y = pos
         self.w, self.h = size
         self.screen = screen

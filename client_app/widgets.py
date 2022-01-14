@@ -445,6 +445,56 @@ class ListWidget(SurfaceSprite):
 
     def append(self, el):
         self.elements.append(el)
+
+
+class SliderInt:
+    def __init__(self, name: str, pos: tuple[int, int], min_: int, max_: int, default: int, screen: pg.Surface, font: pg.font.Font):
+        self.pos = pos
+        self.min = min_
+        self.max = max_
+        self.value = default
+        self.handling = False
+        self.size = 500
+        self.screen = screen
+        self.font = font
+        self.name = name
+        self.pixel_fraction = (self.max - self.min) / 500
+
+    def should_handle(self, pos):
+        circle_pos = (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1])
+        diff = (circle_pos[0] - pos[0], circle_pos[1] - pos[1])
+
+        return (diff[0] * diff[0] + diff[1] * diff[1]) < 900
+
+    def update(self):
+        if not self.handling:
+            return
+
+        pos = pg.mouse.get_pos()
+        pixels = pos[0] - self.pos[0]
+        self.value = pixels * self.pixel_fraction + self.min
+
+        if self.value > self.max:
+            self.value = self.max
+        if self.value < self.min:
+            self.value = self.min
+
+    def draw(self):
+        pg.draw.rect(self.screen, pg.Color(100, 100, 100), (self.pos[0], self.pos[1] - 5, 500, 5), border_radius=3)
+        pg.draw.circle(self.screen, pg.Color(120, 120, 120) if self.handling else pg.Color(80, 80, 80),
+                       (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1]), 30)
+        pg.draw.circle(self.screen, pg.Color(220, 220, 220),
+                       (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1]), 30, width=2)
+        rendered_text = self.font.render(str(int(self.value)), True, pg.Color(255, 255, 255))
+        rendered_name = self.font.render(self.name, True, pg.Color(255, 255, 255))
+        self.screen.blit(rendered_text, (self.pos[0] + 550, self.pos[1] - 40))
+        self.screen.blit(rendered_name, (self.pos[0] - 40 - rendered_name.get_width(), self.pos[1] - 40))
+
+    def handle_events(self, event):
+        if event.type == pg.MOUSEBUTTONDOWN and self.should_handle(event.pos):
+            self.handling = True
+        if event.type == pg.MOUSEBUTTONUP:
+            self.handling = False
         self.text = text
 
     def set_default(self):
@@ -544,3 +594,51 @@ class ListWidget(SurfaceSprite):
 
     def append(self, el):
         self.elements.append(el)
+
+class SliderInt:
+    def __init__(self, name: str, pos: tuple[int, int], min_: int, max_: int, screen: pg.Surface, font: pg.font.Font):
+        self.pos = pos
+        self.min = min_
+        self.max = max_
+        self.handling = False
+        self.size = 500
+        self.screen = screen
+        self.font = font
+        self.name = name
+        self.pixel_fraction = (self.max - self.min) / 500
+
+    def should_handle(self, pos):
+        circle_pos = (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1])
+        diff = (circle_pos[0] - pos[0], circle_pos[1] - pos[1])
+
+        return (diff[0] * diff[0] + diff[1] * diff[1]) < 900
+
+    def update(self):
+        if not self.handling:
+            return
+
+        pos = pg.mouse.get_pos()
+        pixels = pos[0] - self.pos[0]
+        self.value = pixels * self.pixel_fraction + self.min
+
+        if self.value > self.max:
+            self.value = self.max
+        if self.value < self.min:
+            self.value = self.min
+
+    def draw(self):
+        pg.draw.rect(self.screen, pg.Color(100, 100, 100), (self.pos[0], self.pos[1] - 5, 500, 5), border_radius=3)
+        pg.draw.circle(self.screen, pg.Color(120, 120, 120) if self.handling else pg.Color(80, 80, 80),
+                       (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1]), 30)
+        pg.draw.circle(self.screen, pg.Color(220, 220, 220),
+                       (self.pos[0] + (self.value - self.min) / self.pixel_fraction, self.pos[1]), 30, width=2)
+        rendered_text = self.font.render(str(int(self.value)), True, pg.Color(255, 255, 255))
+        rendered_name = self.font.render(self.name, True, pg.Color(255, 255, 255))
+        self.screen.blit(rendered_text, (self.pos[0] + 550, self.pos[1] - 40))
+        self.screen.blit(rendered_name, (self.pos[0] - 40 - rendered_name.get_width(), self.pos[1] - 40))
+
+    def handle_events(self, event):
+        if event.type == pg.MOUSEBUTTONDOWN and self.should_handle(event.pos):
+            self.handling = True
+        if event.type == pg.MOUSEBUTTONUP:
+            self.handling = False

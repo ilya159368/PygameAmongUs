@@ -98,6 +98,7 @@ class App:
         self.active_object = None
         self.can_move = True
         self.in_vent = False
+        self.tasks_to_make = []
         self.add_before_exit(self.delete_room)
 
         # CONSTANTS
@@ -123,6 +124,13 @@ class App:
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
         self.bg_ejected = pg.image.load('images/ejected.png')
 
+        self.kill_sound = pg.mixer.Sound("sound/imposter_kill.mp3")
+        self.death_sound = pg.mixer.Sound("sound/death.mp3")
+        self.report_sound = pg.mixer.Sound("sound/report.mp3")
+        self.step_sound = pg.mixer.Sound("sound/steps.mp3")
+
+        self.last_step_sound = 0
+
         self.collision_map = render.CollisionMap(pg.image.load("images/among_walls.png"))
         # groups
         self.menu_group = pg.sprite.Group()
@@ -133,6 +141,7 @@ class App:
         self.create_group = pg.sprite.Group()
         self.wait_group = pg.sprite.Group()
         self.ui_group = pg.sprite.Group()
+        self.pause_menu_group = pg.sprite.Group()
         # main menu layout
         w, h = self.size
         small_img_button_pos = (w // 32, h // 18)
@@ -264,18 +273,32 @@ class App:
         self.wait_label = Label((w // 3, h // 2 - h // 16), (w // 3, h // 8),
                                 Text('1/10', full_font=FONT_BIG, color=WHITE),
                                 ALPHA, group=self.wait_group)
+
+        # pause menu
+        self.play_button = Button((w * 0.25, h // 2), (w // 2, h // 5), ALPHA,
+                                    Text('continue', full_font=FONT_DEFAULT), border_color=WHITE,
+                                    width=5, border_radius=h // 5, group=self.pause_menu_group,
+                                    func=self.close_settings)
+
+        self.pause_menu_btn_exit = Button((w * 0.4, h * 0.8), (w * 0.2, w // 12), ALPHA,
+                                    Text('exit', full_font=FONT_DEFAULT), group=self.pause_menu_group,
+                                    func=self.exit, border_radius=h // 5, width=5, border_color=WHITE)
+
+        self.volume_slider = SliderInt("Volume", (w // 2 - 250, h // 4), 0, 100, self.screen, FONT_DEFAULT)
+
         # PREDEFINE
         self.visible_group = self.menu_group
 
     def resize_event(self):
         self.bg_img = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
-        self.bg_ejected = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
+        self.bg_ejected = pg.transform.smoothscale(self.bg_ejected, self.screen.get_size())
 
     def draw(self):
         if self.in_game:
             self.screen.fill((0, 0, 0))
-            self.screen.blit(self.map_image,
-                             self.world_to_screen(Vector2(0, 0)).to_pg())  # TODO blit once ?
+            if self.visible_group is not self.pause_menu_group:
+                self.screen.blit(self.map_image,
+                                 self.world_to_screen(Vector2(0, 0)).to_pg())  # TODO blit once ?
             if time.time() - self.last_update_time > 1 / 16:
                 self.cl_move()
                 self.last_update_time = time.time()
@@ -283,16 +306,22 @@ class App:
                 self.player_list[self.id].frame_update()
             if not self.in_vent:
                 self.camera_pos = self.player_list[self.id].abs_origin
-            self.draw_players()
+            if self.visible_group is not self.pause_menu_group:
+                self.draw_players()
             if self.player_list[self.id].imposter and time.time() - self.imposter_cooldown < 30:
                 text = FONT_DEFAULT.render(str(30 - int(time.time() - self.imposter_cooldown)), True,
                                            Color("white"))
                 self.screen.blit(text,
                                  (self.width - text.get_width(), self.height - text.get_height()))
         else:
-            self.screen.blit(self.bg_img, (0, 0))
+            if self.visible_group is self.pause_menu_group:
+                self.screen.blit(self.bg_ejected, (0, 0))
+            else:
+                self.screen.blit(self.bg_img, (0, 0))
             # self.screen.fill((255, 0, 0))
         [self.screen.blit(s.image, s.rect, special_flags=pg.BLEND_RGBA_ADD) for s in self.visible_group.sprites()]
+        if self.visible_group is self.pause_menu_group:
+            self.volume_slider.draw()
         if self.active_object:
             self.active_object.draw()
         if self.in_vent:
@@ -305,6 +334,9 @@ class App:
         if self.active_object is not None:
             self.active_object.update()
         self.visible_group.update()
+
+        if self.visible_group is self.pause_menu_group:
+            self.volume_slider.update()
 
     def draw_players(self):
         for player in self.player_list:
@@ -354,7 +386,7 @@ class App:
                                 if cls is NumbersTask:
                                     self.active_object = cls(self.width // 10, self.height // 6,
                                                              self.height // 6 * 4 // 5, self.screen,
-                                                             FONT_DEFAULT, callback=self.close_task)
+                                                             FONT_DEFAULT, callback=self.close_task, world_pos=center)
                                 elif cls is VotingList:
                                     self.to_queue(Token('voting'))
                                 # elif cls in (ReceiveEnergy, SendEnergy):
@@ -366,7 +398,7 @@ class App:
                                     self.active_object = cls((self.width // 10, self.height // 6),
                                                              (self.width // 10 * 8,
                                                               self.height // 6 * 4),
-                                                             self.screen, callback=self.close_task)
+                                                             self.screen, callback=self.close_task, world_pos=center)
                                 self.can_move = False
                     for center in self.vents_list:
                         if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
@@ -405,6 +437,8 @@ class App:
                         # self.player_list[nearest_player].alive = False
                         self.to_queue(Token('kill', dead=self.player_list[nearest_player].name))
                         self.imposter_cooldown = time.time()
+                        self.kill_sound.set_volume(self.volume_slider.value / 100)
+                        self.kill_sound.play()
                         # тут килляем игрока на сервере с айди nearest_player
 
                 elif e.type == pg.KEYDOWN and e.key == pg.K_f:
@@ -419,6 +453,12 @@ class App:
                         if dist < local_player.interact_range:
                             self.to_queue(Token('voting'))
                             # тут отправляем инфу на сервер, кто зарепортил(айди) и кого зарепортил (айди)
+                            self.report_sound.set_volume(self.volume_slider.value / 100)
+                            self.report_sound.play()
+                elif e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE and self.in_game:
+                    self.visible_group = self.pause_menu_group
+                if self.visible_group is self.pause_menu_group:
+                    self.volume_slider.handle_events(e)
 
             # move to server
             if self.in_game and not self.offline and not self.active_object and self.player_list[
@@ -444,6 +484,11 @@ class App:
                                     self.player_list[resp.kwargs['id']].net_update(
                                         resp.kwargs['origin'],
                                         resp.kwargs['velocity'])
+                                    if self.player_list[resp.kwargs["id"]].velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
+                                        self.last_step_sound = time.time()
+                                        self.step_sound.set_volume(self.volume_slider.value / 100)
+                                        self.step_sound.play()
+
                                 elif resp.operation == 'voting':
                                     print('___________________voting________________')
                                     self.show_voting()
@@ -454,6 +499,8 @@ class App:
                                     if [pl.name for pl in self.player_list].index(
                                             resp.kwargs['dead']) == self.id:
                                         self.can_move = False
+                                        self.death_sound.set_volume(self.volume_slider.value / 100)
+                                        self.death_sound.play()
                                 elif resp.operation == 'end_voting':
                                     id_ = resp.kwargs['voted']
                                     self.show_ejected(id_)
@@ -504,6 +551,7 @@ class App:
                             pl.set_meet_point()
                             temp_list.append(pl)
                         self.player_list = temp_list
+                        self.tasks_to_make = resp.kwargs['tasks'][self.id]
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':
@@ -600,6 +648,11 @@ class App:
         else:
             self.server_update(local_player_id, local_player.origin, Vector2(0, 0))
 
+        if velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
+            self.last_step_sound = time.time()
+            self.step_sound.set_volume(self.volume_slider.value / 100)
+            self.step_sound.play()
+
     def server_update(self, id, origin, velocity):
         self.player_list[id].net_update(origin, velocity)
 
@@ -628,6 +681,11 @@ class App:
             func()
         self.running = False
 
+        winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Pymogus")
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Pymogus", 0, winreg.KEY_WRITE)
+        winreg.SetValueEx(key, "volume", 0, winreg.REG_SZ, str(self.volume_slider.value))
+        winreg.CloseKey(key)
+
     def signin(self):
         if self.signin_login.text and self.signin_password.text:
             self.to_queue(Token(
@@ -648,7 +706,13 @@ class App:
             ))
 
     def show_settings(self):
-        ...
+        self.visible_group = self.pause_menu_group
+
+    def close_settings(self):
+        if self.in_game:
+            self.visible_group = self.ui_group
+        else:
+            self.visible_group = self.menu_group
 
     def show_statistics(self):
         ...
@@ -767,6 +831,12 @@ class App:
 
 def main():
     app = App()
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Pymogus", 0, winreg.KEY_READ)
+        app.volume_slider.value = float(winreg.QueryValueEx(key, "volume")[0])
+        winreg.CloseKey(key)
+    except OSError:
+        app.volume_slider.value = 50
     connect = threading.Thread(target=Client, args=(app,))
     connect.start()
     app.run()
