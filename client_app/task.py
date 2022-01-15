@@ -3,6 +3,7 @@ import random
 import pygame as pg
 from player import clamp
 import time
+from widgets import Button
 
 """
 5813
@@ -175,6 +176,7 @@ from widgets import ListWidget
 
 class NumbersTask:
     type = "NumbersTask"
+
     def __init__(self, x, y, size, screen, font, world_pos, callback):
         self.x = x
         self.y = y
@@ -185,6 +187,8 @@ class NumbersTask:
         self.world_pos = world_pos
 
         self.center = ((x * 2 + w) // 2, (y * 2 + h) // 2)
+
+        # self.cross_close = Button((self.x + self.w - 20), (100, 100), ALPHA)
 
         self.font = font
         self.done = False
@@ -253,12 +257,11 @@ class NumbersTask:
             self.done_time = time.time()
 
         if time.time() - self.done_time > 1.0 and self.done:
-            self.callback(done=1)
+            self.callback(done=1, task=self.__class__.__name__)
 
 
 class WiresTask:
     bg = pg.image.load('images/wires.png')
-    type = "WiresTask"
 
     def __init__(self, pos, size, screen, world_pos, callback):
         self.size = size
@@ -368,7 +371,7 @@ class GarbageTask:
             self.handle_pos = self.handle_pos - self.handle_pos * 0.07
 
         if time.time() - self.done_time > 1.0 and self.done:
-            self.callback(done=1)
+            self.callback(done=1, task=self.__class__.__name__)
 
 
 class Slider(pg.sprite.Sprite):
@@ -411,12 +414,11 @@ class Slider(pg.sprite.Sprite):
                     self.done_time = time.time()
 
         if self.done and time.time() - self.done_time > 1:
-            self.callback(done=1)
+            self.callback(done=1, task='SendEnergy')
 
 
 class SendEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/send_energy.png')
-    type = "SendEnergy"
 
     def __init__(self, pos: tuple, size: tuple, screen, world_pos, callback, special=None):
         super().__init__()
@@ -438,7 +440,6 @@ class SendEnergy(pg.sprite.Sprite):
 
 class ReceiveEnergy(pg.sprite.Sprite):
     image = pg.image.load('images/start.png')
-    type = "ReceiveEnergy"
 
     def __init__(self, pos: tuple, size: tuple, screen, world_pos, callback):
         super().__init__()
@@ -462,7 +463,7 @@ class ReceiveEnergy(pg.sprite.Sprite):
                     self.done_time = time.time()
 
         if self.done and time.time() - self.done_time > 1:
-            self.callback(done=1)
+            self.callback(done=1, task=self.__class__.__name__)
 
 
 if __name__ == '__main__':

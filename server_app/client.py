@@ -1,41 +1,73 @@
 import pickle
+import socket
+import datetime
 import threading
-from collections import deque
+import sys
+from config import Config
+# from shared_files.protocol import *
 from thread_ import CustomThread
 
 
-class Client:
-    def __init__(self, conn):
-        self.conn = conn
-        self.queue = deque()
-        self.queue_from = deque()
-        self.room = None
-        self.send_thread = CustomThread(target=self.send_data)
-        self.send_thread.start()
-        # game attrs
-        self.imposter = False
-        self.name = 'undefined'
+class Client(socket.socket):
+    def __init__(self, app):
+        super(Client, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
+        # self.settimeout(10)
+        self.connect_server()
+        if self.connected:
+            self.queue_from = app.queue_from
+            self.queue_to = app.queue_to
+            self.last_time_connected = datetime.datetime.now()
+            self.recv_thread = CustomThread(target=self.recv_data)
+            self.send_thread = CustomThread(target=self.send_data)
+            app.send_thread = self.send_thread
+            self.send_thread.start()
+            self.recv_thread.start()
+            self.send_thread.suspend()
+            self.recv_thread.suspend()
+            app.add_before_exit(self.close)
+            app.add_before_exit(self.send_thread.kill)
+            app.add_before_exit(self.recv_thread.kill)
+        else:
+            app.offline = True
+        app.connecting = False
 
     def send_data(self):
         while 1:
-            if self.queue:
-                self.conn.send(pickle.dumps(self.queue.popleft()))
-            if not self.queue:
+            if self.queue_to:
+                data = self.queue_to.popleft()
+                try:
+                    self.sendall(data)
+                    # print('send')
+                except socket.error:
+                    self.close()
+                    return -1
+            if not self.queue_to:
                 threading.currentThread().suspend()
                 break
 
-    def send2all(self, resp, include_self=False):
-        for client_el in self.room.players_list:
-            print(f'{self.name}->{client_el.name}')
-            if include_self:
-                client_el.queue.append(resp)
-                client_el.send_thread.resume()
+    def recv_data(self):
+        while 1:
+            try:
+                data = b''
+                while True:
+                    part = self.recv(1024)
+                    data += part
+                    if len(part) < 1024:
+                        break
+            except socket.error:
+                self.close()
+                return -1
             else:
-                if client_el is not self:
-                    client_el.queue.append(resp)
-                    client_el.send_thread.resume()
+                if not data:
+                    self.close()
+                    return -1
+                else:
+                    self.queue_from.append(data)
 
-    def to_queue(self, resp):
-        self.queue.append(resp)
-        if self.send_thread.is_paused():
-            self.send_thread.resume()
+    def connect_server(self):
+        try:
+            self.connect((Config.server_ip, Config.server_port))
+            self.connected = True
+        except socket.error:
+            self.connected = False
+

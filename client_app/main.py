@@ -16,7 +16,7 @@ from client import Client
 from auto_reg import *
 from timer import Timer, ProgressBar
 
-from MY_TEST import VotingList
+from MY_TEST import VotingList, TaskList
 
 Vector2 = render.Vector2
 
@@ -93,7 +93,7 @@ class App:
             SendEnergy: ((3364, 2558),),
             ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
                             (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
-
+        self.task_widget = None
         self.vents_list = [(5749, 1307), (6575, 660), (7865, 1833), (7866, 2408), (6671, 2416),
                            (6700, 3836),
                            (5440, 3045), (3222, 2207), (2238, 3717), (2729, 2508), (1239, 2512),
@@ -347,6 +347,8 @@ class App:
             self.screen.blit(temp, (0, 0))
         if self.in_game and self.task_bar is not None:
             self.task_bar.draw()
+        if self.in_game and self.task_widget is not None:
+            self.task_widget.draw()
         # self.timer.draw()
 
     def update(self):
@@ -407,10 +409,11 @@ class App:
                     elif player.alive:
                         for cls, tup in self.tasks_dict.items():
                             for center in tup:
-                                if (
-                                        Vector2(*center) - pl_center).length() <= player.interact_range or \
-                                        ((Vector2(
-                                            *center) - pl_center).length() <= 450 and cls is VotingList):  # для
+                                if ((
+                                            Vector2(*center) - pl_center).length() <= player.interact_range and
+                                        center in [t[1] for t in self.tasks_to_make] or (
+                                            (Vector2(
+                                                *center) - pl_center).length() <= 450 and cls is VotingList)):  # для
                                     # радиуса стола
                                     if cls is NumbersTask:
                                         self.active_object = cls(self.width // 10, self.height // 6,
@@ -517,6 +520,7 @@ class App:
                                         "id"]].velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
                                         self.last_step_sound = time.time()
                                         self.step_sound.set_volume(self.volume_slider.value / 100)
+                                        self.step_sound.stop()
                                         self.step_sound.play()
 
                                 elif resp.operation == 'voting':
@@ -585,6 +589,8 @@ class App:
                             temp_list.append(pl)
                         self.player_list = temp_list
                         self.tasks_to_make = resp.kwargs['tasks'][self.id]
+                        print([t[1] for t in self.tasks_to_make])
+                        self.task_widget = TaskList((10, 60), (310, 175), self.tasks_to_make, self.screen)
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':
@@ -686,6 +692,7 @@ class App:
         if velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
             self.last_step_sound = time.time()
             self.step_sound.set_volume(self.volume_slider.value / 100)
+            self.step_sound.stop()
             self.step_sound.play()
 
     def server_update(self, id, origin, velocity):
@@ -842,12 +849,15 @@ class App:
                                       1080 + math.sin(pl.id * 36) * 300)
         self.can_move = False  # TODO fix bcz update after disable
 
-    def close_task(self, done=0):
+    def close_task(self, done=0, task=None):
         self.active_object = None
         self.can_move = True
         if self.ui_group.has(self.close_task_btn):
             self.ui_group.remove(self.close_task_btn)
         if done:
+            self.task_widget.visual_tasks[
+                [t.task_name for t in self.task_widget.visual_tasks].index(task)].status = True
+
             self.to_queue(Token('task'))
 
     def close_voting(self):

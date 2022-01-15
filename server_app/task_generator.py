@@ -1,23 +1,24 @@
 import random
+# import task
 
-tasks = [["WiresTask", (5235, 2400)],
-         ["WiresTask", (4640, 2814)],
-         ["WiresTask", (3596, 2629)],
-         ["WiresTask", (4035, 303)],
-         ["WiresTask", (2182, 2078)],
-         ["WiresTask", (7600, 1982)],
-         ["NumbersTask", (928, 1685)],
-         ["GarbageTask", (5141, 4270)],
-         ["GarbageTask", (5761, 543)],
-         ["SendEnergy", (3364, 2558)],
-         ["ReceiveEnergy", (1380, 1810)],
-         ["ReceiveEnergy", (1883, 679)],
-         ["ReceiveEnergy", (1742, 2909)],
-         ["ReceiveEnergy", (7043, 874)],
-         ["ReceiveEnergy", (6496, 1695)],
-         ["ReceiveEnergy", (7870, 1689)],
-         ["ReceiveEnergy", (6918, 3070)],
-         ["ReceiveEnergy", (6097, 3782)]]
+tasks = [["WiresTask", (5235, 2400), ('Почините провода', 'где-то')],
+         ["WiresTask", (4640, 2814), ('Почините провода', 'где-то')],
+         ["WiresTask", (3596, 2629), ('Почините провода', 'где-то')],
+         ["WiresTask", (4035, 303), ('Почините провода', 'где-то')],
+         ["WiresTask", (2182, 2078), ('Почините провода', 'где-то')],
+         ["WiresTask", (7600, 1982), ('Почините провода', 'где-то')],
+         ["NumbersTask", (928, 1685), ('Запустите реактор', 'Реактор')],
+         ["GarbageTask", (5141, 4270), ('Выбросите мусор', 'Склад')],
+         ["GarbageTask", (5761, 543), ('Выбросите мусор', 'Cтоловая')],
+         ["SendEnergy", (3364, 2558), ('Отправьте энергию', 'Электрощит')],
+         ["ReceiveEnergy", (1380, 1810), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (1883, 679), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (1742, 2909), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (7043, 874), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (6496, 1695), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (7870, 1689), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (6918, 3070), ('Получите энергию', 'где-то')],
+         ["ReceiveEnergy", (6097, 3782), ('Получите энергию', 'где-то')]]
 
 
 def generate_tasks():
@@ -47,7 +48,7 @@ def should_done_task(task, task_list):
         return False
 
     for t in task_list:
-        if task.type == t[0] and task.world_pos == t[1]:
+        if task.__class__.__name__ == t[0] and task.world_pos == t[1]:
             return True
 
     return False

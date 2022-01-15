@@ -1,6 +1,6 @@
 import pygame as pg
 
-from protocol import Token
+# from protocol import Token
 from player import Player
 from widgets import Button, Text
 from timer import Timer
@@ -188,6 +188,60 @@ class VotingList(pg.sprite.Sprite):
             self.send_func(None)
 
 
+class TaskList(pg.sprite.Sprite):
+    def __init__(self, pos: tuple, size: tuple, tasks, screen):
+        super().__init__()
+        self.x, self.y = pos
+        self.w, self.h = size
+        self.screen = screen
+
+        self.tasks = tasks
+        self.visual_tasks = []
+
+        self.active = True
+
+        self.surface = pg.surface.Surface((self.w, self.h))
+        self.surface.fill((255, 255, 255))
+        self.surface.set_alpha(50)
+
+        self.make_visual_tasks()
+
+    def make_visual_tasks(self):
+        for i in range(len(self.tasks)):
+            task = self.tasks[i]
+            self.visual_tasks.append(Task((self.x + 10, self.y + i * self.h // len(self.tasks) + 10),
+                                          (self.w, self.h), False, task[2][0], task[2][1], self.screen, task[0]))
+
+    def draw(self):
+        if self.active:
+            # pg.draw.rect(self.screen, 'gray', (self.x, self.y, self.w, self.h), 0)
+            self.screen.blit(self.surface, (self.x, self.y))
+            [t.draw() for t in self.visual_tasks]
+
+
+class Task:
+    def __init__(self, pos: tuple, size: tuple, status, name, place, screen, task_name):
+        self.x, self.y = pos
+        self.w, self.h = size
+
+        self.status = status
+        self.task_name = task_name
+        self.name = name
+        self.place = place
+        self.screen = screen
+        self.font = pg.font.Font(None, int(self.h // 7))
+
+        self.active = True
+
+    def draw(self):
+        if self.active:
+            if self.status:
+                text = self.font.render(f'{self.place}: {self.name}', 1, 'green')
+            else:
+                text = self.font.render(f'{self.place}: {self.name}', 1, 'white')
+            self.screen.blit(text, (self.x, self.y))
+
+
 if __name__ == '__main__':
 
     pg.init()
@@ -210,17 +264,29 @@ if __name__ == '__main__':
     players[1].name = 'dead'
     players[2].name = 'guy3'
 
-    tablet = VotingList((100, 100), (853, 582), players, screen, False, True)
-    tablet.make_voted('guy3')
+    lst = [["WiresTask", (5235, 2400), ('Почините провода', 'где-то')],
+           ["WiresTask", (4640, 2814), ('Почините провода', 'где-то')],
+           ["WiresTask", (3596, 2629), ('Почините провода', 'где-то')],
+           ["WiresTask", (4035, 303), ('Почините провода', 'где-то')],
+           ["NumbersTask", (928, 1685), ('Запустите реактор', 'Реактор')],
+           ["GarbageTask", (5141, 4270), ('Выбросите мусор', 'Склад')],
+           ["GarbageTask", (5761, 543), ('Выбросите мусор', 'Cтоловая')],
+           ["SendEnergy", (3364, 2558), ('Отправьте энергию', 'Электрощит')]
+           ]
 
+    tt = TaskList((100, 100), (620, 350), lst, screen)
+    # tablet = VotingList((100, 100), (853, 582), players, screen, False, True)
+    # tablet.make_voted('guy3')
+    # t = Task((100, 100), (200, 140), False, 'Почините что-то', 'очко', screen)
     while running:
-        tablet.update()
+        # tablet.update()
 
         WIDTH, HEIGHT = pg.display.get_window_size()
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 running = False
         screen.fill(pg.Color(0, 0, 0))
-        tablet.draw()
+        # t.draw()
+        tt.draw()
         pg.display.flip()
         clock.tick(FPS)

@@ -56,3 +56,10 @@ class Room:
            #  self.players_list[i].to_queue(Token('generated_tasks', tasks=self.players_tasks[i]))
         return self.players_tasks
 
+
+    def generate_tasks(self):
+        self.players_tasks = [generate_tasks() for _ in range(len(self.players_list))]
+        # for i in range(len(self.players_list)):
+           #  self.players_list[i].to_queue(Token('generated_tasks', tasks=self.players_tasks[i]))
+        return self.players_tasks
+
