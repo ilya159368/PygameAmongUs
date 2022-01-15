@@ -76,6 +76,8 @@ class App:
         self.offline = False
         self.connecting = True
         self.token = None
+        pg.display.set_caption("Pymogus")
+        pg.display.set_icon(pg.image.load('images/ico.png'))
         self.screen = pg.display.set_mode(self.size)
         render.init(self.size)
         self.clock = pg.time.Clock()
@@ -92,14 +94,17 @@ class App:
             ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
                             (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
 
-        pg.display.set_caption("Pymogus")
-
-        self.vents_list = []
+        self.vents_list = [(5749, 1307), (6575, 660), (7865, 1833), (7866, 2408), (6671, 2416),
+                           (6700, 3836),
+                           (5440, 3045), (3222, 2207), (2238, 3717), (2729, 2508), (1239, 2512),
+                           (1044, 1804),
+                           (2230, 806), (3076, 2007)]
         self.active_object = None
         self.can_move = True
         self.in_vent = False
         self.tasks_to_make = []
         self.add_before_exit(self.delete_room)
+        self.update_screen = True
 
         # CONSTANTS
         self.task_bar = None
@@ -221,7 +226,8 @@ class App:
                                            )
         # account
         self.account_username = Label((w // 2 - w // 4, h // 2.7), (w // 2, h // 7),
-                                      Text(f'Username: "{self.name}"', full_font=FONT_DEFAULT), ALPHA, WHITE,
+                                      Text(f'Username: "{self.name}"', full_font=FONT_DEFAULT),
+                                      ALPHA, WHITE,
                                       width=5, border_radius=True, group=self.account_group)
         self.account_btn_signout = Button((w // 8 * 0.75, h // 3 * 2), (w // 8 * 3, h // 8), ALPHA,
                                           Text('sign out', full_font=FONT_DEFAULT),
@@ -276,15 +282,24 @@ class App:
 
         # pause menu
         self.play_button = Button((w * 0.25, h // 2), (w // 2, h // 5), ALPHA,
-                                    Text('continue', full_font=FONT_DEFAULT), border_color=WHITE,
-                                    width=5, border_radius=h // 5, group=self.pause_menu_group,
-                                    func=self.close_settings)
+                                  Text('continue', full_font=FONT_DEFAULT), border_color=WHITE,
+                                  width=5, border_radius=h // 5, group=self.pause_menu_group,
+                                  func=self.close_settings)
 
         self.pause_menu_btn_exit = Button((w * 0.4, h * 0.8), (w * 0.2, w // 12), ALPHA,
-                                    Text('exit', full_font=FONT_DEFAULT), group=self.pause_menu_group,
-                                    func=self.exit, border_radius=h // 5, width=5, border_color=WHITE)
+                                          Text('exit', full_font=FONT_DEFAULT),
+                                          group=self.pause_menu_group,
+                                          func=self.exit, border_radius=h // 5, width=5,
+                                          border_color=WHITE)
 
-        self.volume_slider = SliderInt("Volume", (w // 2 - 250, h // 4), 0, 100, self.screen, FONT_DEFAULT)
+        self.volume_slider = SliderInt("Volume", (w // 2 - 250, h // 4), 0, 100, self.screen,
+                                       FONT_DEFAULT)
+        # ui
+        self.close_task_btn = Button(
+            (self.width - self.height // 10, self.height // 20),
+            (self.height // 10, self.height // 10),
+            pg.SRCALPHA, self.close_img,
+            func=self.close_task, hovered_color=GRAY)
 
         # PREDEFINE
         self.visible_group = self.menu_group
@@ -319,13 +334,17 @@ class App:
             else:
                 self.screen.blit(self.bg_img, (0, 0))
             # self.screen.fill((255, 0, 0))
-        [self.screen.blit(s.image, s.rect, special_flags=pg.BLEND_RGBA_ADD) for s in self.visible_group.sprites()]
+        [self.screen.blit(s.image, s.rect, special_flags=pg.BLEND_RGBA_ADD) for s in
+         self.visible_group.sprites()]
         if self.visible_group is self.pause_menu_group:
             self.volume_slider.draw()
         if self.active_object:
             self.active_object.draw()
         if self.in_vent:
-            self.screen.fill((0, 0, 0, 125))
+            temp = pg.Surface(self.size)
+            temp.fill(pg.Color(0, 0, 0))
+            temp.set_alpha(100)
+            self.screen.blit(temp, (0, 0))
         if self.in_game and self.task_bar is not None:
             self.task_bar.draw()
         # self.timer.draw()
@@ -348,14 +367,15 @@ class App:
             if player == self.player_list[self.id] and self.in_vent:
                 continue
             self.screen.blit(player.get_image(), w2s.to_pg())
-            rfont = FONT_DEFAULT.render(player.name, False,
-                                        WHITE if not player.imposter else (255, 0, 0))
-            self.screen.blit(rfont,
-                             (w2s.x - rfont.get_width() / 2 + 50, w2s.y - 100))
+            if player.alive:
+                rfont = FONT_DEFAULT.render(player.name, False,
+                                            WHITE if not player.imposter else (255, 0, 0))
+                self.screen.blit(rfont,
+                                 (w2s.x - rfont.get_width() / 2 + 50, w2s.y - 100))
 
     def run(self):
         while self.running:
-            self.update( )
+            self.update()
             # events / send ---------
             e: pg.event.Event
             for e in pg.event.get():
@@ -372,51 +392,58 @@ class App:
                 elif e.type == pg.KEYDOWN and e.key == pg.K_j:
                     self.to_queue(
                         Token('join', token=self.token))  # TODO: room = None when restart !!!
-
+                elif self.in_vent and e.type == pg.KEYDOWN and e.key == pg.K_e:
+                    self.exit_vent()
                 elif e.type == pg.KEYDOWN and e.key == pg.K_e:
                     # расстояние от центра задания до центра игрока <= дальности взаимодействия
                     player = self.player_list[self.id]
                     pl_center = player.origin - Vector2(0, 60)
-                    for cls, tup in self.tasks_dict.items():
-                        for center in tup:
-                            if (Vector2(*center) - pl_center).length() <= player.interact_range or \
-                                    ((Vector2(
-                                        *center) - pl_center).length() <= 400 and cls is VotingList):  # для
-                                # радиуса стола
-                                if cls is NumbersTask:
-                                    self.active_object = cls(self.width // 10, self.height // 6,
-                                                             self.height // 6 * 4 // 5, self.screen,
-                                                             FONT_DEFAULT, callback=self.close_task, world_pos=center)
-                                elif cls is VotingList:
-                                    self.to_queue(Token('voting'))
-                                # elif cls in (ReceiveEnergy, SendEnergy):
-                                #     self.active_object = cls((self.width // 10, self.height // 6),
-                                #                              (self.width // 10 * 8,
-                                #                               self.height // 6 * 4),
-                                #                              self.screen)
-                                else:
-                                    self.active_object = cls((self.width // 10, self.height // 6),
-                                                             (self.width // 10 * 8,
-                                                              self.height // 6 * 4),
-                                                             self.screen, callback=self.close_task, world_pos=center)
+                    if player.imposter:
+                        for center in self.vents_list:
+                            if math.sqrt(abs(center[0] - pl_center.x) ** 2 + abs(
+                                    center[1] - pl_center.y) ** 2) <= player.interact_range:
+                                self.show_vent(center)
                                 self.can_move = False
-                    for center in self.vents_list:
-                        if math.sqrt(abs(center[0] - pl_center[0]) ** 2 + abs(
-                                center[1] - pl_center[1]) ** 2) <= player.interact_range:
-                            self.show_vent(center)
-                            self.can_move = False
-                elif self.in_vent and e.key == pg.K_LEFT:
+                    elif player.alive:
+                        for cls, tup in self.tasks_dict.items():
+                            for center in tup:
+                                if (
+                                        Vector2(*center) - pl_center).length() <= player.interact_range or \
+                                        ((Vector2(
+                                            *center) - pl_center).length() <= 450 and cls is VotingList):  # для
+                                    # радиуса стола
+                                    if cls is NumbersTask:
+                                        self.active_object = cls(self.width // 10, self.height // 6,
+                                                                 self.height // 6 * 4 // 5,
+                                                                 self.screen,
+                                                                 FONT_DEFAULT,
+                                                                 callback=self.close_task,
+                                                                 world_pos=center)
+                                    elif cls is VotingList:
+                                        self.to_queue(Token('voting'))
+                                    # elif cls in (ReceiveEnergy, SendEnergy):
+                                    #     self.active_object = cls((self.width // 10, self.height // 6),
+                                    #                              (self.width // 10 * 8,
+                                    #                               self.height // 6 * 4),
+                                    #                              self.screen)
+                                    else:
+                                        self.active_object = cls(
+                                            (self.width // 10, self.height // 6),
+                                            (self.width // 10 * 8,
+                                             self.height // 6 * 4),
+                                            self.screen, callback=self.close_task, world_pos=center)
+                                    self.can_move = False
+                                    self.ui_group.add(self.close_task_btn)
+                elif self.in_vent and e.type == pg.KEYDOWN and e.key == pg.K_LEFT:
                     self.start_vent -= 1
                     if self.start_vent < 0:
-                        self.start_vent = len(self.vents_list) - 1 + self.start_vent
-                    self.camera_pos = self.vents_list[self.start_vent]
-                elif self.in_vent and e.key == pg.K_RIGHT:
+                        self.start_vent = len(self.vents_list) - 1
+                    self.camera_pos = Vector2(*self.vents_list[self.start_vent])
+                elif self.in_vent and e.type == pg.KEYDOWN and e.key == pg.K_RIGHT:
                     self.start_vent += 1
                     if self.start_vent > len(self.vents_list) - 1:
                         self.start_vent = 0
-                    self.camera_pos = self.vents_list[self.start_vent]
-                elif self.in_vent and e.key == pg.K_e:
-                    self.exit_vent()
+                    self.camera_pos = Vector2(*self.vents_list[self.start_vent])
                 elif e.type == pg.KEYDOWN and e.key == pg.K_q:
                     local_player = self.player_list[self.id]
                     if not local_player.imposter or time.time() - self.imposter_cooldown < 30.0 or not local_player.alive:
@@ -443,6 +470,8 @@ class App:
 
                 elif e.type == pg.KEYDOWN and e.key == pg.K_f:
                     local_player = self.player_list[self.id]
+                    if not local_player.alive:
+                        continue
                     for i in range(len(self.player_list)):
                         if i == self.id:
                             continue
@@ -484,7 +513,8 @@ class App:
                                     self.player_list[resp.kwargs['id']].net_update(
                                         resp.kwargs['origin'],
                                         resp.kwargs['velocity'])
-                                    if self.player_list[resp.kwargs["id"]].velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
+                                    if self.player_list[resp.kwargs[
+                                        "id"]].velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
                                         self.last_step_sound = time.time()
                                         self.step_sound.set_volume(self.volume_slider.value / 100)
                                         self.step_sound.play()
@@ -503,6 +533,9 @@ class App:
                                         self.death_sound.play()
                                 elif resp.operation == 'end_voting':
                                     id_ = resp.kwargs['voted']
+                                    if id_ is not None:
+                                        self.player_list[id_].show = False
+                                        self.player_list[id_].alive = False
                                     self.show_ejected(id_)
                                     self.close_voting()
                                     for pl in self.player_list:
@@ -545,7 +578,7 @@ class App:
                             pl = Player()
                             pl.color = color
                             pl.name = name
-                            pl.imposter = True
+                            pl.imposter = False
                             pl.id = i
                             pl.load_anims()
                             pl.set_meet_point()
@@ -598,7 +631,8 @@ class App:
                             self.signin_status_label.set_text(resp.kwargs['status'])
             self.draw()  # TODO fix cpu usage
             try:
-                pg.display.flip()
+                if self.update_screen:
+                    pg.display.flip()
                 self.clock.tick(32)
             except KeyboardInterrupt:
                 pass
@@ -611,8 +645,9 @@ class App:
 
     def exit_vent(self):
         self.in_vent = False
-        self.player_list[self.id].origin = Vector2(self.start_vent)
+        self.player_list[self.id].origin = Vector2(*self.vents_list[self.start_vent])
         self.start_vent = None
+        self.can_move = True
 
     def world_to_screen(self, world: Vector2):
         return Vector2(self.width / 2 + (world.x - self.camera_pos.x),
@@ -796,19 +831,22 @@ class App:
 
     def show_voting(self):
         self.active_object = VotingList(
-            (self.width // 2 - self.width // 6, self.height // 2 - self.height // 6), (854, 577),
+            (self.width // 2 - 854 // 2, self.height // 2 - 577 // 2), (854, 577),
             self.player_list, self.screen,
             self.player_list[self.id].imposter, self.send_,
             self.player_list[self.id].alive)
         self.active_object.alive = self.player_list[self.id].alive
         [pl.set_meet_point() for pl in self.player_list if pl.alive]
         for pl in self.player_list:
-            self.camera_pos = Vector2(4832 + math.cos(pl.id * 36) * 300, 1080 + math.sin(pl.id * 36) * 300)
-        self.can_move = False   # TODO fix bcz update after disable
+            self.camera_pos = Vector2(4832 + math.cos(pl.id * 36) * 300,
+                                      1080 + math.sin(pl.id * 36) * 300)
+        self.can_move = False  # TODO fix bcz update after disable
 
     def close_task(self, done=0):
         self.active_object = None
         self.can_move = True
+        if self.ui_group.has(self.close_task_btn):
+            self.ui_group.remove(self.close_task_btn)
         if done:
             self.to_queue(Token('task'))
 

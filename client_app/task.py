@@ -426,7 +426,7 @@ class SendEnergy(pg.sprite.Sprite):
         self.screen = screen
         self.callback = callback
 
-        self.slider = Slider((self.x + 317, self.y + 324), (44, 37), self.screen, (self.x, self.y), callback)
+        self.slider = Slider((self.x + 317, self.y + 324), (44, 37), self.screen, (self.x, self.y), world_pos, callback)
 
     def draw(self):
         self.screen.blit(self.image, (self.x, self.y))

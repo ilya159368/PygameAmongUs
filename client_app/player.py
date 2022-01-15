@@ -147,6 +147,7 @@ class Player:
 
     def set_meet_point(self):
         self.origin = Vector2(4832 + math.cos(self.id * 36) * 300, 1080 + math.sin(self.id * 36) * 300)
+        self.abs_origin = Vector2(4832 + math.cos(self.id * 36) * 300, 1080 + math.sin(self.id * 36) * 300)
 
     def disable(self):
         self.alive = False

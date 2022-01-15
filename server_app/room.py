@@ -2,6 +2,7 @@ import random
 from config import Config
 import threading
 from protocol import Token
+from task_generator import generate_tasks
 
 
 class Room:
@@ -39,9 +40,19 @@ class Room:
             out = self.players_votes.index(most_voted_player)  # индекс
         for pl in self.players_list:
             pl.to_queue(Token('end_voting', voted=out))
+        # reset
+        self.players_votes = [0] * len(self.players_list)
+        self.skip_votes = 0
 
     def delete_client(self, client):
         self.players_list.remove(client)
 
     def __repr__(self):
         return f'Room<tok:{self.token} cnt:{len(self.players_list)} av:{self.available}>'
+
+    def generate_tasks(self):
+        self.players_tasks = [generate_tasks() for _ in range(len(self.players_list))]
+        # for i in range(len(self.players_list)):
+           #  self.players_list[i].to_queue(Token('generated_tasks', tasks=self.players_tasks[i]))
+        return self.players_tasks
+

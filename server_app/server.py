@@ -3,6 +3,7 @@ import sys
 import time
 
 from room import Room
+from task_generator import generate_tasks
 from config import Config
 import threading
 import pickle
@@ -166,8 +167,8 @@ class Server(socket.socket):
                         room.available = False
                         client.room.init()
                         client.send2all(Token('init', players=[
-                            (c.name, c.color, c.imposter) for c in client.room.players_list]),
-                                        include_self=True)
+                            (c.name, c.color, c.imposter) for c in client.room.players_list],
+                             tasks=client.room.generate_tasks()), include_self=True)
                 # ----------- тут начинается бд ---------------------------------------
                 elif req.operation == 'sign_in':
                     result = sign_in(self.db, req.kwargs['name'], req.kwargs['password'], self.cur)

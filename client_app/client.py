@@ -11,7 +11,7 @@ from thread_ import CustomThread
 class Client(socket.socket):
     def __init__(self, app):
         super(Client, self).__init__(socket.AF_INET, socket.SOCK_STREAM)
-        self.settimeout(1)
+        # self.settimeout(10)
         self.connect_server()
         if self.connected:
             self.queue_from = app.queue_from
@@ -53,26 +53,16 @@ class Client(socket.socket):
                     part = self.recv(1024)
                     data += part
                     if len(part) < 1024:
-                        # either 0 or end of data
                         break
-                print('_____________recv___________')
-                a = pickle.loads(data)
-                if a.operation != 'move':
-                    print(a.operation)
-            except socket.timeout as e:
-                err = e.args[0]
-                if err != 'timed out':
-                    sys.exit(1)
             except socket.error:
                 self.close()
                 return -1
             else:
                 if not data:
-                    print('server error')
-                    sys.exit(0)
+                    self.close()
+                    return -1
                 else:
                     self.queue_from.append(data)
-            # req = pickle.loads(data)
 
     def connect_server(self):
         try:
