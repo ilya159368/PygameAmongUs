@@ -15,6 +15,7 @@ class Client:
         # game attrs
         self.imposter = False
         self.name = 'undefined'
+        self.alive = True
 
     def send_data(self):
         while 1:

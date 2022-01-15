@@ -127,10 +127,23 @@ class App:
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
         self.bg_ejected = pg.image.load('images/ejected.png')
 
+        self.end_game_screens = [
+            pygame.transform.smoothscale(pg.image.load("images/crewmate_win.png"), (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/crewmate_loose.png"), (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/imposter_win.png"), (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/imposter_loose.png"), (self.width, self.height))
+        ]
+        self.show_end_game_screen = False
+        self.end_game_screen_id = 0
+        self.end_game_screen_time = 0
+
         self.kill_sound = pg.mixer.Sound("sound/imposter_kill.mp3")
         self.death_sound = pg.mixer.Sound("sound/death.mp3")
         self.report_sound = pg.mixer.Sound("sound/report.mp3")
         self.step_sound = pg.mixer.Sound("sound/steps.mp3")
+        self.ejected_sound = pg.mixer.Sound("sound/ejected.mp3")
+        self.crewmate_win_sound = pg.mixer.Sound("sound/crewmate_win.mp3")
+        self.imposter_win_sound = pg.mixer.Sound("sound/imposter_win.mp3")
 
         self.last_step_sound = 0
 
@@ -347,6 +360,9 @@ class App:
             self.task_bar.draw()
         if self.in_game and self.task_widget is not None:
             self.task_widget.draw()
+
+        if self.show_end_game_screen:
+            self.render_end_screen()
         # self.timer.draw()
 
     def update(self):
@@ -533,6 +549,7 @@ class App:
                                         self.death_sound.set_volume(self.volume_slider.value / 100)
                                         self.death_sound.play()
                                 elif resp.operation == 'end_voting':
+                                    self.imposter_cooldown = time.time()
                                     id_ = resp.kwargs['voted']
                                     if id_ is not None:
                                         self.player_list[id_].show = False
@@ -541,6 +558,27 @@ class App:
                                     threading.Timer(5, self.close_voting).start()
                                 elif resp.operation == 'make_voted':
                                     self.active_object.make_voted(resp.kwargs['id_'])
+                                elif resp.operation == "end_game":
+                                    if resp.kwargs["team"] == 0:
+                                        if not self.player_list[self.id].imposter:
+                                            self.end_game_screen_id = CREWMATE_WIN
+                                        else:
+                                            self.end_game_screen_id = IMPOSTER_LOOSE
+
+                                        self.crewmate_win_sound.set_volume(self.volume_slider.value)
+                                        self.crewmate_win_sound.play()
+                                    else:
+                                        if not self.player_list[self.id].imposter:
+                                            self.end_game_screen_id = CREWMATE_LOOSE
+                                        else:
+                                            self.end_game_screen_id = IMPOSTER_WIN
+
+                                        self.imposter_win_sound.set_volume(self.volume_slider.value)
+                                        self.imposter_win_sound.play()
+                                    self.show_end_game_screen = True
+                                    self.can_move = False
+                                    self.end_game_screen_time = time.time()
+
                         except Exception as e:
                             print('lost|empty queue', e)
                     # print(len(self.queue_from))
@@ -629,6 +667,7 @@ class App:
                         else:
                             self.visible_group = self.signin_group
                             self.signin_status_label.set_text(resp.kwargs['status'])
+
             self.draw()  # TODO fix cpu usage
             try:
                 if self.update_screen:
@@ -864,6 +903,8 @@ class App:
         self.update_screen = True
 
     def show_ejected(self, id):
+        self.ejected_sound.set_volume(self.volume_slider.value / 100)
+        self.ejected_sound.play()
         self.screen.blit(self.bg_ejected, (0, 0))
         if id is None:
             text = 'No one was ejected...'
@@ -875,6 +916,13 @@ class App:
         pg.display.flip()
         self.update_screen = False
 
+    def render_end_screen(self):
+        self.screen.blit(self.end_game_screens[self.end_game_screen_id], (0, 0))
+
+        if time.time() - self.end_game_screen_time > 10:
+            self.show_end_game_screen = False
+            self.visible_group = self.menu_group
+            self.in_game = False
 
 def main():
     app = App()
@@ -890,6 +938,11 @@ def main():
 
 
 if __name__ == '__main__':
+    # end game screen id
+    CREWMATE_WIN = 0
+    CREWMATE_LOOSE = 1
+    IMPOSTER_WIN = 2
+    IMPOSTER_LOOSE = 3
     pg.init()
     WHITE = (255, 255, 255)
     GRAY = (224, 224, 224)

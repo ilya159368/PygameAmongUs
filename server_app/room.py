@@ -4,6 +4,8 @@ import threading
 from protocol import Token
 from task_generator import generate_tasks
 
+CREWMATE_WIN = 0
+IMPOSTER_WIN = 1
 
 class Room:
     def __init__(self, token, name, max_players):
@@ -22,11 +24,17 @@ class Room:
         self.players_votes = [0] * len(self.players_list)
         self.players_list[random.randrange(len(self.players_list))].imposter = True
 
+    def send2all(self, token):
+        for pl in self.players_list:
+            pl.to_queue(token)
+
     def check_win(self):
         if self.tasks_progress >= self.win_condition:
-            ...
-        elif len([1 for pl in self.players_list if not pl.imposter]) < 3:
-            ...
+            self.send2all(Token("end_game", team=CREWMATE_WIN))
+        elif len([1 for pl in self.players_list if not pl.imposter and pl.alive]) < 2:
+            self.send2all(Token("end_game", team=IMPOSTER_WIN))
+        elif len([1 for pl in self.players_list if pl.imposter and pl.alive]) < 1:
+            self.send2all(Token("end_game", team=CREWMATE_WIN))
 
     def start_voting(self):
         threading.Timer(60, self.end_voting).start()
@@ -38,11 +46,14 @@ class Room:
         most_voted_player = lst[-1]
         if lst[-1] != lst[-2] and self.skip_votes < most_voted_player:
             out = self.players_votes.index(most_voted_player)  # индекс
-        for pl in self.players_list:
-            pl.to_queue(Token('end_voting', voted=out))
+
+        self.send2all(Token("end_voting", voted=out))
+        self.players_list[out].alive = False
         # reset
         self.players_votes = [0] * len(self.players_list)
         self.skip_votes = 0
+
+        self.check_win()
 
     def delete_client(self, client):
         self.players_list.remove(client)

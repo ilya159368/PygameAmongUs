@@ -104,6 +104,8 @@ class Server(socket.socket):
                     client.room.start_voting()
                 elif req.operation == 'kill':
                     client.send2all(req, include_self=True)
+                    client.room.players_list[[pl.name for pl in client.room.players_list].index(
+                                        req.kwargs['dead'])].alive = False
                     client.room.check_win()
                 elif req.operation == 'task':
                     client.room.tasks_progress += 1
