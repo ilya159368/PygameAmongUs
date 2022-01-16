@@ -3,6 +3,7 @@ from config import Config
 import threading
 from protocol import Token
 from task_generator import generate_tasks
+from db_funcs import add_rating
 
 CREWMATE_WIN = 0
 IMPOSTER_WIN = 1
@@ -20,7 +21,7 @@ class Room:
         self.skip_votes = 0
 
     def init(self):
-        self.win_condition = len(self.players_list) * Config.task_per_player
+        self.win_condition = (len(self.players_list) - 1) * Config.task_per_player
         self.players_votes = [0] * len(self.players_list)
         self.players_list[random.randrange(len(self.players_list))].imposter = True
 
@@ -31,10 +32,13 @@ class Room:
     def check_win(self):
         if self.tasks_progress >= self.win_condition:
             self.send2all(Token("end_game", team=CREWMATE_WIN))
+            [add_rating(cl.name) for cl in self.players_list if cl.alive and not cl.imposter]
         elif len([1 for pl in self.players_list if not pl.imposter and pl.alive]) < 2:
             self.send2all(Token("end_game", team=IMPOSTER_WIN))
+            [add_rating(cl.name) for cl in self.players_list if cl.imposter]
         elif len([1 for pl in self.players_list if pl.imposter and pl.alive]) < 1:
             self.send2all(Token("end_game", team=CREWMATE_WIN))
+            [add_rating(cl.name) for cl in self.players_list if cl.alive and not cl.imposter]
 
     def start_voting(self):
         threading.Timer(60, self.end_voting).start()
@@ -48,7 +52,8 @@ class Room:
             out = self.players_votes.index(most_voted_player)  # индекс
 
         self.send2all(Token("end_voting", voted=out))
-        self.players_list[out].alive = False
+        if out is not None:
+            self.players_list[out].alive = False
         # reset
         self.players_votes = [0] * len(self.players_list)
         self.skip_votes = 0
@@ -60,13 +65,6 @@ class Room:
 
     def __repr__(self):
         return f'Room<tok:{self.token} cnt:{len(self.players_list)} av:{self.available}>'
-
-    def generate_tasks(self):
-        self.players_tasks = [generate_tasks() for _ in range(len(self.players_list))]
-        # for i in range(len(self.players_list)):
-           #  self.players_list[i].to_queue(Token('generated_tasks', tasks=self.players_tasks[i]))
-        return self.players_tasks
-
 
     def generate_tasks(self):
         self.players_tasks = [generate_tasks() for _ in range(len(self.players_list))]

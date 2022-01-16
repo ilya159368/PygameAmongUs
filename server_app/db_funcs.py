@@ -1,4 +1,6 @@
 import sqlite3
+
+
 # from hashlib import sha256
 
 
@@ -34,3 +36,24 @@ def change_name(conn, old_name, new_name, cur):
     return 'такого имени не существует'
 
 
+def add_rating(player):
+    conn = sqlite3.connect('database.sqlite')
+    cur = conn.cursor()
+
+    cur.execute(f"""UPDATE Users
+SET Rating = Rating + 1
+WHERE Name = '{player}'""")
+    conn.commit()
+
+
+def get_rating(name):
+    conn = sqlite3.connect('database.sqlite')
+    cur = conn.cursor()
+
+    rating = cur.execute("""SELECT Name, Rating FROM Users
+ORDER BY Rating DESC
+LIMIT 5""").fetchall()
+    my_place = cur.execute(f"""SELECT Name, Rating FROM Users WHERE Name = '{name}'""").fetchone()
+    if my_place in rating:
+        return rating
+    return rating + [my_place]

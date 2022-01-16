@@ -89,13 +89,15 @@ class App:
         self.tasks_dict = {WiresTask: (
             (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
             NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),),
-            GarbageTask: ((4910, 4170), (5523, 528),),
+            GarbageTask: ((4910, 4170), (5523, 528)),
             SendEnergy: ((3364, 2558),),
             ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
                             (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
         self.task_widget = None
-        self.vents_list = [((5749, 1307), (6671, 2416), (5440, 3045)), ((6575, 660), (7865, 1833)), ((7866, 2408), (6700, 3836)),
-                           ((2729, 2508), (3076, 2007), (3222, 2707)), ((2238, 3717), (1239, 2512)), ((1044, 1804), (2230, 806))]
+        self.vents_list = [((5749, 1307), (6671, 2416), (5440, 3045)), ((6575, 660), (7865, 1833)),
+                           ((7866, 2408), (6700, 3836)),
+                           ((2729, 2508), (3076, 2007), (3222, 2707)), ((2238, 3717), (1239, 2512)),
+                           ((1044, 1804), (2230, 806))]
         self.active_object = None
         self.can_move = True
         self.in_vent = False
@@ -103,6 +105,7 @@ class App:
         self.tasks_to_make = []
         self.add_before_exit(self.delete_room)
         self.update_screen = True
+        self.name = 'undefined'
 
         # CONSTANTS
         self.task_bar = None
@@ -115,7 +118,7 @@ class App:
         self.create_img = pg.image.load('images/create.png')
         self.refresh_img = pg.image.load('images/refresh.png').convert_alpha()
         self.close_img = pg.image.load('images/close.png').convert_alpha()
-        self.stats_img = pg.image.load('images/statistics.png')
+        self.rating_img = pg.image.load('images/rating.png')
         self.map_image = pg.image.load("images/among_map.png")
         # self.amogus_right = pg.image.load("images/amogus.png")
         # self.amogus_right = pygame.transform.smoothscale(self.amogus_right, (100, 120))
@@ -126,16 +129,26 @@ class App:
         self.amogus_right = pygame.transform.smoothscale(self.amogus_right, self.player_size)
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
         self.bg_ejected = pg.image.load('images/ejected.png')
+        self.rendered_guide = pg.image.load('images/guide.png')
+        self.rendered_about = FONT_DEFAULT.render('', True, WHITE)
+        self.rendered_rating_label = FONT_BOLD.render('Rating', True, WHITE)
+        self.left_arrow_img = pg.image.load('images/arrow_left.png')
+        self.right_arrow_img = pg.image.load('images/arrow_right.png')
 
         self.end_game_screens = [
-            pygame.transform.smoothscale(pg.image.load("images/crewmate_win.png"), (self.width, self.height)),
-            pygame.transform.smoothscale(pg.image.load("images/crewmate_loose.png"), (self.width, self.height)),
-            pygame.transform.smoothscale(pg.image.load("images/imposter_win.png"), (self.width, self.height)),
-            pygame.transform.smoothscale(pg.image.load("images/imposter_loose.png"), (self.width, self.height))
+            pygame.transform.smoothscale(pg.image.load("images/crewmate_win.png"),
+                                         (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/crewmate_loose.png"),
+                                         (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/imposter_win.png"),
+                                         (self.width, self.height)),
+            pygame.transform.smoothscale(pg.image.load("images/imposter_loose.png"),
+                                         (self.width, self.height))
         ]
         self.show_end_game_screen = False
         self.end_game_screen_id = 0
         self.end_game_screen_time = 0
+        self.win_team = -1
 
         self.kill_sound = pg.mixer.Sound("sound/imposter_kill.mp3")
         self.death_sound = pg.mixer.Sound("sound/death.mp3")
@@ -158,6 +171,9 @@ class App:
         self.wait_group = pg.sprite.Group()
         self.ui_group = pg.sprite.Group()
         self.pause_menu_group = pg.sprite.Group()
+        self.guide_group = pg.sprite.Group()
+        self.about_group = pg.sprite.Group()
+        self.rating_group = pg.sprite.Group()
         # main menu layout
         w, h = self.size
         small_img_button_pos = (w // 32, h // 18)
@@ -178,16 +194,18 @@ class App:
         self.menu_btn_settings = Button((w // 3, h // 4 * 3), (w // 12, w // 12), ALPHA,
                                         self.settings_img, group=self.menu_group,
                                         func=self.show_settings)
-        self.menu_btn_about = Button((w // 2 - w // 24, h // 4 * 3), (w // 12, w // 12), ALPHA,
+        self.menu_btn_guide = Button((w // 2 - w // 24, h // 4 * 3), (w // 12, w // 12), ALPHA,
                                      self.about_img, group=self.menu_group,
-                                     func=self.show_about)
-        self.menu_btn_stats = Button((w // 3 * 2 - w // 12, h // 4 * 3), (w // 12, w // 12), ALPHA,
-                                     self.stats_img, group=self.menu_group,
-                                     func=self.show_statistics)
+                                     func=self.show_guide)
+        self.menu_btn_rating = Button((w // 3 * 2 - w // 12, h // 4 * 3), (w // 12, w // 12), ALPHA,
+                                      self.rating_img, group=self.menu_group,
+                                      func=self.show_rating)
 
         self.btn_back = Button(small_img_button_pos, small_img_button_size, pg.SRCALPHA,
                                self.back_img,
-                               group=(self.signin_group, self.account_group, self.find_group),
+                               group=(self.signin_group, self.account_group, self.find_group,
+                                      self.guide_group, self.about_group,
+                                      self.pause_menu_group, self.rating_group),
                                func=self.show_menu)
         # signin widgets
         self.signin_login = LineEdit((w // 10, h // 2.9), signin_input_size, ALPHA, WHITE, width=5,
@@ -233,8 +251,7 @@ class App:
                                    func=self.register, border_radius=h // 8, width=5)
         self.register_status_label = Label((0, h // 1.5), (w, h // 8),
                                            Text('', full_font=FONT_DEFAULT, color=(255, 0, 0)),
-                                           ALPHA, group=self.register_group,
-                                           )
+                                           ALPHA, group=self.register_group)
         # account
         self.account_username = Label((w // 2 - w // 4, h // 2.7), (w // 2, h // 7),
                                       Text(f'Username: "{self.name}"', full_font=FONT_DEFAULT),
@@ -302,8 +319,8 @@ class App:
                                           group=self.pause_menu_group,
                                           func=self.exit, border_radius=h // 5, width=5,
                                           border_color=WHITE)
-
-        self.volume_slider = SliderInt("Volume", (w // 2 - 250, h // 4), 0, 100, self.screen,
+        self.volume_slider = SliderInt("Volume", (w // 2 - 250, int(h // 4 * 1.5)), 0, 100,
+                                       self.screen,
                                        FONT_DEFAULT)
         # ui
         self.close_task_btn = Button(
@@ -311,13 +328,23 @@ class App:
             (self.height // 10, self.height // 10),
             pg.SRCALPHA, self.close_img,
             func=self.close_task, hovered_color=(120, 120, 120))
-
+        # guide/about
+        self.left_btn = Button((0, self.height // 2 - self.height // 14),
+                               (self.height // 7, self.height // 7), ALPHA, self.left_arrow_img,
+                               group=self.about_group,
+                               func=self.show_guide)
+        self.right_btn = Button(
+            (self.width - self.height // 7, self.height // 2 - self.height // 14),
+            (self.height // 7, self.height // 7), ALPHA, self.right_arrow_img,
+            group=self.guide_group,
+            func=self.show_about)
         # PREDEFINE
         self.visible_group = self.menu_group
 
     def resize_event(self):
         self.bg_img = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
         self.bg_ejected = pg.transform.smoothscale(self.bg_ejected, self.screen.get_size())
+        self.rendered_guide = pg.transform.smoothscale(self.rendered_guide, self.screen.get_size())
 
     def draw(self):
         if self.in_game:
@@ -342,11 +369,24 @@ class App:
         else:
             if self.visible_group is self.pause_menu_group:
                 self.screen.blit(self.bg_ejected, (0, 0))
+            elif self.visible_group is self.rating_group:
+                self.screen.blit(self.bg_ejected, (0, 0))
+                self.screen.blit(self.rendered_rating_label, (self.width // 2 - self.rendered_rating_label.get_width() // 2,
+                                                              self.height // 44))
+            elif self.visible_group in (self.about_group, self.guide_group):
+                self.screen.blit(self.bg_ejected, (0, 0))
+                text = self.rendered_guide if self.visible_group is self.guide_group else self.rendered_about
+                self.screen.blit(text,
+                                 (self.width // 2 - text.get_width() // 2,
+                                  self.height // 2 - text.get_height() // 2,
+                                  *text.get_size()))
             else:
                 self.screen.blit(self.bg_img, (0, 0))
             # self.screen.fill((255, 0, 0))
         [self.screen.blit(s.image, s.rect, special_flags=pg.BLEND_RGBA_ADD) for s in
-         self.visible_group.sprites()]
+         self.visible_group.sprites() if
+         not self.in_game and self.visible_group == self.pause_menu_group and s is self.btn_back or
+         self.in_game and self.visible_group == self.pause_menu_group and s is not self.btn_back or self.visible_group != self.pause_menu_group]
         if self.visible_group is self.pause_menu_group:
             self.volume_slider.draw()
         if self.active_object:
@@ -363,7 +403,6 @@ class App:
 
         if self.show_end_game_screen:
             self.render_end_screen()
-        # self.timer.draw()
 
     def update(self):
         self.visible_group.update()
@@ -384,8 +423,11 @@ class App:
                 continue
             self.screen.blit(player.get_image(), w2s.to_pg())
             if player.alive:
+                should_red = False
+                if self.player_list[self.id].imposter and player.imposter:
+                    should_red = True
                 rfont = FONT_DEFAULT.render(player.name, False,
-                                            WHITE if not player.imposter else (255, 0, 0))
+                                            WHITE if not should_red else (255, 0, 0))
                 self.screen.blit(rfont,
                                  (w2s.x - rfont.get_width() / 2 + 50, w2s.y - 100))
 
@@ -414,6 +456,7 @@ class App:
                     # расстояние от центра задания до центра игрока <= дальности взаимодействия
                     player = self.player_list[self.id]
                     pl_center = player.origin - Vector2(0, 60)
+                    flag_break = False
                     if player.imposter:
                         for tup in self.vents_list:
                             for center in tup:
@@ -422,6 +465,10 @@ class App:
                                     self.active_vent_group = tup
                                     self.show_vent(center)
                                     self.can_move = False
+                                    flag_break = True
+                                    break
+                            if flag_break:
+                                break
                     elif player.alive:
                         for cls, tup in self.tasks_dict.items():
                             for center in tup:
@@ -510,7 +557,7 @@ class App:
                 self.id].alive:
                 player: Player = self.player_list[self.id]
                 self.to_queue(
-                    Token('move', id=self.id, origin=player.origin, velocity=player.velocity))
+                    Token('move', id=self.id, origin=player.origin, velocity=player.velocity, show=not self.in_vent))
 
             # drawing / recv ---------
             if self.queue_from:
@@ -529,6 +576,7 @@ class App:
                                     self.player_list[resp.kwargs['id']].net_update(
                                         resp.kwargs['origin'],
                                         resp.kwargs['velocity'])
+                                    self.player_list[resp.kwargs['id']].show = resp.kwargs['show']
                                     if self.player_list[resp.kwargs[
                                         "id"]].velocity.length_sqr() > 1 and time.time() - self.last_step_sound > 0.9:
                                         self.last_step_sound = time.time()
@@ -578,6 +626,7 @@ class App:
                                     self.show_end_game_screen = True
                                     self.can_move = False
                                     self.end_game_screen_time = time.time()
+                                    self.win_team = resp.kwargs['team']
 
                         except Exception as e:
                             print('lost|empty queue', e)
@@ -608,12 +657,12 @@ class App:
                     elif resp.operation == 'init':
                         temp_list = []
                         self.task_bar = ProgressBar((10, 10), (self.width // 3, 50), self.screen,
-                                                    len(resp.kwargs['players']) * 7)
+                                                    (len(resp.kwargs['players']) - 1) * 7)
                         for i, (name, color, imposter) in enumerate(resp.kwargs['players']):
                             pl = Player()
                             pl.color = color
                             pl.name = name
-                            pl.imposter = True
+                            pl.imposter = imposter
                             pl.id = i
                             pl.load_anims()
                             pl.set_meet_point()
@@ -622,7 +671,7 @@ class App:
                         self.tasks_to_make = resp.kwargs['tasks'][self.id]
                         print([t[1] for t in self.tasks_to_make])
                         self.task_widget = TaskList((10, 60), (310, 175), self.tasks_to_make,
-                                                    self.screen)
+                                                    self.screen) if self.player_list[self.id].imposter else None
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':
@@ -645,11 +694,34 @@ class App:
                             self.wait_label.set_text(f'1/{self.room_max}')
                         print(self.id, 'ok')
                     elif resp.operation == 'connected':
-                        self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
+                        self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["mx"]}')
                     elif resp.operation == 'quit':
                         self.show_find()
                         ...
-                    # тут писал криворукий
+                    elif resp.operation == 'get_rating':
+                        rating = resp.kwargs['rating']
+                        if hasattr(self, 'rating_label1'):
+                            for s in self.rating_group:
+                                if s is not self.btn_back:
+                                    self.rating_group.remove(s)
+                        colors = [(217, 159, 0), (199, 199, 199), (201, 110, 30), (28, 28, 28),
+                                  (28, 28, 28), (57, 250, 90)]
+                        local_name = self.name
+                        for i, (name, rating) in enumerate(rating):
+                            margin = self.height // 22
+                            spaces = 18 - 3 - len(name) - len(str(rating))
+                            setattr(self, f'rating_label{i + 1}',
+                                    Label((self.width // 2 - self.width // 4,
+                                           self.height // 10 * (i + 1) + margin * (i + 1)),
+                                          (self.width // 2, self.height // 10),
+                                          Text(f'{i + 1}. {name}{" " * spaces}{rating}',
+                                               full_font=FONT_DEFAULT,
+                                               color=WHITE),
+                                          colors[i] if 0 <= i <= 4 else ALPHA,
+                                          border_radius=self.height // 8,
+                                          group=self.rating_group,
+                                          border_color=None if name != local_name else colors[5],
+                                          width=None if name != local_name else 10))
                     elif resp.operation == 'register':
                         if resp.kwargs['status'] == 'ok':
                             self.show_signin()
@@ -662,6 +734,8 @@ class App:
                             self.account_username.set_text(resp.kwargs['my_name'])
                             if self.visible_group is self.menu_group:
                                 self.show_find()
+                            elif self.visible_group is self.rating_group:
+                                pass
                             else:
                                 self.show_menu()
                         else:
@@ -734,6 +808,7 @@ class App:
 
     def show_game(self):
         self.in_game = True
+        self.can_move = True
         self.visible_group = self.ui_group
         self.imposter_cooldown = time.time()
 
@@ -762,11 +837,13 @@ class App:
         winreg.SetValueEx(key, "volume", 0, winreg.REG_SZ, str(self.volume_slider.value))
         winreg.CloseKey(key)
 
-    def signin(self):
-        if self.signin_login.text and self.signin_password.text:
+    def signin(self, login=None, password=None):
+        if login and password:
             self.to_queue(Token(
-                'sign_in', name=self.signin_login.text, password=self.signin_password.text
-            ))
+                'sign_in', name=login, password=password))
+        elif self.signin_login.text and self.signin_password.text:
+            self.to_queue(Token(
+                'sign_in', name=self.signin_login.text, password=self.signin_password.text))
             save_account(self.signin_login.text, self.signin_password.text)
 
     def send_(self, id_):
@@ -790,15 +867,26 @@ class App:
         else:
             self.visible_group = self.menu_group
 
-    def show_statistics(self):
-        ...
+    def show_rating(self):
+        ok, login, password = load_account()
+        if ok:
+            self.signin(login, password)
+        else:
+            self.show_signin()
+            return
+        self.to_queue(Token('get_rating'))
+        self.visible_group = self.rating_group
+
+    def show_guide(self):
+        self.visible_group = self.guide_group
 
     def show_about(self):
-        ...
+        self.visible_group = self.about_group
 
     def signout(self):
         self.signed_in = False
         self.visible_group = self.menu_group
+        save_account('', '')
 
     def change_name(self):
         ...
@@ -918,11 +1006,28 @@ class App:
 
     def render_end_screen(self):
         self.screen.blit(self.end_game_screens[self.end_game_screen_id], (0, 0))
+        self.update_screen = True
+        self.render_team = []
+        for pl in self.player_list:
+            if self.win_team == 1 and pl.imposter:
+                self.render_team.append(pl)
+            elif self.win_team == 0 and not pl.imposter:
+                self.render_team.append(pl)
+
+        screen_center = self.width // 2
+        render_pos = screen_center - len(self.render_team) * 80
+
+        for pl in self.render_team:
+            self.screen.blit(pl.get_image(), (render_pos, self.height // 2 - 100))
+            rfont = FONT_DEFAULT.render(pl.name, False, WHITE)
+            self.screen.blit(rfont, (render_pos + 50 - rfont.get_width() / 2, self.height // 2 + 30))
+            render_pos += 160
 
         if time.time() - self.end_game_screen_time > 10:
             self.show_end_game_screen = False
             self.visible_group = self.menu_group
             self.in_game = False
+
 
 def main():
     app = App()

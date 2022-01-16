@@ -93,6 +93,8 @@ class Server(socket.socket):
                 client.room.delete_client(client)
                 client.send2all(Token('connected', cnt=len(client.room.players_list)))
                 client.room = None
+            elif req.operation == 'get_rating':
+                conn.send(pickle.dumps(Token('get_rating', rating=get_rating(client.name))))
 
             # process game
             if req.in_game:
@@ -160,10 +162,10 @@ class Server(socket.socket):
                     room.players_list.append(client)
                     client.color = room.colors_list[client.id]
                     client.send2all(
-                        Token('connected', cnt=len(room.players_list), max_=room.max_players))
+                        Token('connected', cnt=len(room.players_list), mx=room.max_players))
                     out = Token('join', id=client.id, status='ok', token=room.token,
                                 cnt=len(room.players_list),
-                                max_=room.max_players)  # TODO .+^ check if client quit
+                                mx=room.max_players)  # TODO .+^ check if client quit
                     conn.send(pickle.dumps(out))
                     if len(room.players_list) == room.max_players:
                         room.available = False
