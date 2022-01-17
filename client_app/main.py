@@ -1,22 +1,18 @@
-import math
 import pickle
-import time
-
-from task import *
-
-from protocol import *
-from widgets import *
-from collections import deque
-from player import *
-import render
-import pygame as pg
 import threading
-from client import Client
+from collections import deque
 
-from auto_reg import *
-from timer import Timer, ProgressBar
+import pygame as pg
 
+import render
 from MY_TEST import VotingList, TaskList
+from auto_reg import *
+from client import Client
+from player import *
+from protocol import *
+from task import *
+from timer import ProgressBar
+from widgets import *
 
 Vector2 = render.Vector2
 
@@ -89,7 +85,7 @@ class App:
         self.tasks_dict = {WiresTask: (
             (5235, 2400), (4640, 2814), (3596, 2629), (4035, 303), (2182, 2078), (7600, 1982)),
             NumbersTask: ((928, 1685),), VotingList: ((4675, 1120),),
-            GarbageTask: ((4910, 4170), (5523, 528)),
+            GarbageTask: ((5790, 500), (5135, 4265)),
             SendEnergy: ((3364, 2558),),
             ReceiveEnergy: ((1380, 1810), (1883, 679), (1742, 2909), (7043, 874),
                             (6496, 1695), (7870, 1689), (6918, 3070), (6097, 3782))}
@@ -130,7 +126,7 @@ class App:
         self.amogus_left = pygame.transform.flip(self.amogus_left, True, False)
         self.bg_ejected = pg.image.load('images/ejected.png')
         self.rendered_guide = pg.image.load('images/guide.png')
-        self.rendered_about = FONT_DEFAULT.render('', True, WHITE)
+        self.rendered_about = pg.image.load('images/about_authors.png')
         self.rendered_rating_label = FONT_BOLD.render('Rating', True, WHITE)
         self.left_arrow_img = pg.image.load('images/arrow_left.png')
         self.right_arrow_img = pg.image.load('images/arrow_right.png')
@@ -345,6 +341,7 @@ class App:
         self.bg_img = pg.transform.smoothscale(self.bg_img, self.screen.get_size())
         self.bg_ejected = pg.transform.smoothscale(self.bg_ejected, self.screen.get_size())
         self.rendered_guide = pg.transform.smoothscale(self.rendered_guide, self.screen.get_size())
+        self.rendered_about = pg.transform.smoothscale(self.rendered_about, self.screen.get_size())
 
     def draw(self):
         if self.in_game:
@@ -371,8 +368,9 @@ class App:
                 self.screen.blit(self.bg_ejected, (0, 0))
             elif self.visible_group is self.rating_group:
                 self.screen.blit(self.bg_ejected, (0, 0))
-                self.screen.blit(self.rendered_rating_label, (self.width // 2 - self.rendered_rating_label.get_width() // 2,
-                                                              self.height // 44))
+                self.screen.blit(self.rendered_rating_label,
+                                 (self.width // 2 - self.rendered_rating_label.get_width() // 2,
+                                  self.height // 44))
             elif self.visible_group in (self.about_group, self.guide_group):
                 self.screen.blit(self.bg_ejected, (0, 0))
                 text = self.rendered_guide if self.visible_group is self.guide_group else self.rendered_about
@@ -480,8 +478,8 @@ class App:
                                                     *center) - pl_center).length() <= 450 and cls is VotingList)):  # для
                                     # радиуса стола
                                     if cls is NumbersTask:
-                                        self.active_object = cls(self.width // 10, self.height // 6,
-                                                                 self.height // 6 * 4 // 5,
+                                        self.active_object = cls(self.width // 2 - self.width // 4, self.height // 2 - self.height // 4,
+                                                                 self.width // 10,
                                                                  self.screen,
                                                                  FONT_DEFAULT,
                                                                  callback=self.close_task,
@@ -489,11 +487,34 @@ class App:
                                         self.ui_group.add(self.close_task_btn)
                                     elif cls is VotingList:
                                         self.to_queue(Token('voting'))
-                                    else:
+                                    elif cls is ReceiveEnergy:
+                                        self.active_object = cls(
+                                            (self.width // 2 - self.width // 6,
+                                             self.height // 2 - self.height // 6),
+                                            (self.width // 3,
+                                             self.height // 3),
+                                            self.screen, callback=self.close_task, world_pos=center)
+                                        self.ui_group.add(self.close_task_btn)
+                                    elif cls is SendEnergy:
+                                        self.active_object = cls(
+                                            (self.width // 2 - self.width // 6,
+                                             self.height // 2 - self.height // 6),
+                                            (self.width // 3,
+                                             self.height // 3),
+                                            self.screen, callback=self.close_task, world_pos=center)
+                                        self.ui_group.add(self.close_task_btn)
+                                    elif cls is GarbageTask:
                                         self.active_object = cls(
                                             (self.width // 10, self.height // 6),
                                             (self.width // 10 * 8,
                                              self.height // 6 * 4),
+                                            self.screen, callback=self.close_task, world_pos=center)
+                                        self.ui_group.add(self.close_task_btn)
+                                    else:
+                                        self.active_object = cls(
+                                            (self.width // 2 - self.width // 4, self.height // 2 - self.height // 4),
+                                            (self.width // 2,
+                                             self.height // 2),
                                             self.screen, callback=self.close_task, world_pos=center)
                                         self.ui_group.add(self.close_task_btn)
                                     self.can_move = False
@@ -557,7 +578,8 @@ class App:
                 self.id].alive:
                 player: Player = self.player_list[self.id]
                 self.to_queue(
-                    Token('move', id=self.id, origin=player.origin, velocity=player.velocity, show=not self.in_vent))
+                    Token('move', id=self.id, origin=player.origin, velocity=player.velocity,
+                          show=not self.in_vent))
 
             # drawing / recv ---------
             if self.queue_from:
@@ -670,8 +692,9 @@ class App:
                         self.player_list = temp_list
                         self.tasks_to_make = resp.kwargs['tasks'][self.id]
                         print([t[1] for t in self.tasks_to_make])
-                        self.task_widget = TaskList((10, 60), (310, 175), self.tasks_to_make,
-                                                    self.screen) if self.player_list[self.id].imposter else None
+                        if not self.player_list[self.id].imposter:
+                            self.task_widget = TaskList((10, 60), (310, 175), self.tasks_to_make,
+                                                        self.screen)
                         self.show_game()
                     elif resp.operation == 'join':
                         if resp.kwargs['status'] == 'bad':
@@ -681,7 +704,7 @@ class App:
                             self.id = resp.kwargs['id']
                             self.token = resp.kwargs['token']
                             self.show_wait()
-                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["max_"]}')
+                            self.wait_label.set_text(f'{resp.kwargs["cnt"]}/{resp.kwargs["mx"]}')
                         print(self.id)
                     elif resp.operation == 'create':
                         if resp.kwargs['status'] == 'bad':
@@ -930,7 +953,7 @@ class App:
         if self.create_status_label.text:
             self.create_status_label.set_text('')
         self.to_queue(Token('create', name=self.create_title.text,
-                            max=max_))
+                            mx=max_))
         self.room_max = max_
 
     def create_back(self):

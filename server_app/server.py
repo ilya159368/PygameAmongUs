@@ -131,7 +131,7 @@ class Server(socket.socket):
                             return
                     client.id = 0
                     token = self.room_token
-                    room = Room(token, req.kwargs['name'], req.kwargs['max'])
+                    room = Room(token, req.kwargs['name'], req.kwargs['mx'])
                     self.room_token += 1
                     self.rooms_list.append(room)
                     client.room = room
